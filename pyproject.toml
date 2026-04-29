@@ -34,6 +34,12 @@ viz = [
     "plotly>=5.18",
     "kaleido>=0.2,<1.0",
 ]
+dashboard = [
+    "cartopy>=0.22",
+    "plotly>=5.18",
+    "kaleido>=0.2,<1.0",
+    "streamlit>=1.30",
+]
 
 [project.scripts]
 sat-tracker = "sat_tracker.cli:main"

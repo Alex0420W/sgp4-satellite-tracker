@@ -1,4 +1,30 @@
+# Flat-list runtime dependencies for Streamlit Cloud.
+#
+# Streamlit Cloud reads requirements.txt (not pyproject.toml extras),
+# so we keep this in sync manually with [project] +
+# [project.optional-dependencies.viz, .dashboard] in pyproject.toml.
+#
+# We DO ship cartopy here even though it's the slowest install in the
+# tree (~25-30s cold start) — the dashboard's 3D globe reads coastlines
+# from cartopy's bundled Natural Earth shapefiles via
+# visualization/figures.py:_add_coastlines. Without cartopy the 3D
+# Earth becomes a featureless blue ball and the "looks like Earth from
+# space" hero falls apart. system-level libgeos-dev + libproj-dev
+# come from packages.txt.
+#
+# The trailing `.` installs the project itself (sat_tracker package
+# from src/-layout). Without that line, `from sat_tracker...` imports
+# inside the dashboard would fail with ModuleNotFoundError on the cloud.
+#
+# Dropped vs. [dev]: pytest. The cloud runtime never runs tests.
+# Dropped vs. [viz]: matplotlib (the dashboard never uses the
+# static-cartopy renderer; only the deferred shapefile-reader path).
 sgp4>=2.23
 skyfield>=1.46
 requests>=2.31
-pytest>=7.4
+numpy>=1.24
+plotly>=5.18
+kaleido>=0.2,<1.0
+streamlit>=1.30
+cartopy>=0.22
+.

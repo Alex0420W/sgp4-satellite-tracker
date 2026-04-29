@@ -38,7 +38,7 @@ _DEFAULT_CATNR = 25544          # ISS (ZARYA)
 _DEFAULT_MAX_FAILURES = 10
 _DEFAULT_HOURS = 24.0
 
-_KNOWN_SUBCOMMANDS = frozenset({"now", "passes", "plot"})
+_KNOWN_SUBCOMMANDS = frozenset({"now", "passes", "plot", "dashboard"})
 
 # Exit codes — distinct enough that watch-mode CI checks can disambiguate.
 _EXIT_OK = 0
@@ -46,6 +46,7 @@ _EXIT_TLE_FETCH = 2
 _EXIT_PROPAGATION = 3
 _EXIT_WATCH_ABORTED = 4
 _EXIT_PLOT = 5
+_EXIT_DASHBOARD = 6
 _EXIT_INTERRUPTED = 130
 
 
@@ -489,6 +490,28 @@ def _build_parser() -> argparse.ArgumentParser:
             "include a slider."
         ),
     )
+
+    # 'dashboard'
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Launch the local Streamlit dashboard server.",
+        description=(
+            "Spawn `streamlit run` against src/sat_tracker/dashboard/app.py. "
+            "Requires the [dashboard] extra: pip install -e '.[dashboard]'."
+        ),
+    )
+    dashboard_parser.add_argument(
+        "--port",
+        type=int,
+        default=8501,
+        metavar="N",
+        help="TCP port to bind the local server (default 8501).",
+    )
+    dashboard_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not auto-open a browser tab on launch.",
+    )
     return parser
 
 
@@ -663,6 +686,54 @@ def _dispatch_plot(
     return _EXIT_OK
 
 
+def _dispatch_dashboard(args: argparse.Namespace) -> int:
+    """Spawn ``streamlit run`` against the dashboard entry point.
+
+    The dashboard imports its own config / converter / fetcher
+    singletons, so we do not pre-initialise anything here. Running via
+    subprocess (rather than e.g. ``streamlit.web.bootstrap``) keeps
+    the local-launch path one shell call deep — the same as what
+    Streamlit Cloud does.
+    """
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    streamlit_bin = shutil.which("streamlit")
+    if streamlit_bin is None:
+        print(
+            "error: 'streamlit' executable not found on PATH. Install with: "
+            "pip install -e '.[dashboard]'",
+            file=sys.stderr,
+        )
+        return _EXIT_DASHBOARD
+
+    # Resolve the entry point relative to this file so the command works
+    # regardless of cwd.
+    app_path = (
+        Path(__file__).resolve().parent / "dashboard" / "app.py"
+    )
+    if not app_path.is_file():
+        print(
+            f"error: dashboard app not found at {app_path}",
+            file=sys.stderr,
+        )
+        return _EXIT_DASHBOARD
+
+    cmd = [
+        streamlit_bin,
+        "run",
+        str(app_path),
+        f"--server.port={args.port}",
+    ]
+    if args.no_browser:
+        cmd.append("--server.headless=true")
+    try:
+        return subprocess.call(cmd)
+    except KeyboardInterrupt:
+        return _EXIT_INTERRUPTED
+
+
 def _parse_iso_utc(raw: str) -> Optional[datetime]:
     # Accept trailing 'Z' as a synonym for +00:00 (Python <3.11 quirk).
     text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
@@ -690,6 +761,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     config = load_config()
     configure_logging(config)
+
+    # 'dashboard' is a thin subprocess shim — it does not need any of
+    # the per-process TleFetcher / CoordinateConverter setup the other
+    # subcommands need (the streamlit subprocess builds its own).
+    if args.subcommand == "dashboard":
+        return _dispatch_dashboard(args)
 
     converter = CoordinateConverter(config)
 

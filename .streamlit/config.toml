@@ -1,0 +1,27 @@
+[theme]
+# Match the 3D Earth-from-space aesthetic — dark navy paper colour,
+# the same #ffd400 gold accent we use for "now" markers, off-white
+# body text. The light Streamlit default fought the dark plotly
+# figures; unifying everything dark removes that visual seam.
+base = "dark"
+primaryColor = "#ffd400"
+backgroundColor = "#0a0e1a"
+secondaryBackgroundColor = "#161c2e"
+textColor = "#e8e8f0"
+font = "sans serif"
+
+[server]
+headless = true
+# Streamlit Cloud sets this itself, but the local equivalent of the
+# CLI subcommand we ship (`python -m sat_tracker dashboard`) defaults
+# to non-headless and prints "open this URL" — overriding here keeps
+# the local-vs-cloud experience consistent.
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# Hide the "Deploy / Stop / running man" toolbar in the deployed app.
+# Recruiters opening the live URL shouldn't see Streamlit dev chrome.
+toolbarMode = "minimal"
+showErrorDetails = false
