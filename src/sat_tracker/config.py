@@ -15,7 +15,7 @@ from pathlib import Path
 _DEFAULT_CACHE_DIR = Path("data")
 _DEFAULT_CACHE_TTL_HOURS = 6
 _DEFAULT_TLE_SOURCE_URL = "https://celestrak.org/NORAD/elements/gp.php"
-_DEFAULT_USER_AGENT = "sat-tracker/0.1 (+github.com/myusername/sat-tracker)"
+_DEFAULT_USER_AGENT = "sat-tracker/0.1 (+github.com/Alex0420W/sgp4-satellite-tracker)"
 _DEFAULT_HTTP_TIMEOUT_SECONDS = 10
 _DEFAULT_LOG_LEVEL = "INFO"
 

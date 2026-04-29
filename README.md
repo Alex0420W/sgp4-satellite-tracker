@@ -1,74 +1,147 @@
 # sgp4-satellite-tracker
 
-Real-time satellite tracking and orbit propagation using TLE data from CelesTrak and the SGP4 model, with 3D visualization and pass prediction.
+Real-time satellite tracking with SGP4 orbital propagation, TEME-to-WGS84 coordinate transformation, and IERS Earth Orientation Parameter corrections. Built in Python with a focus on the aerospace-software details that matter: time scale rigor, frame conversion correctness, and graceful degradation when upstream data sources fail.
 
-## Status
+```text
+$ python -m sat_tracker
+ISS (ZARYA) [25544]
+  Time:     2026-04-29T00:46:36.836930+00:00
+  Position: 27.0150°S, 68.9172°W
+  Altitude: 423.6 km
+```
 
-Stage 1 (MVP scaffolding) — in progress.
+## Why this project
 
-## Requirements
+I built this as part of preparing to apply to NASA. Most "satellite tracker" tutorials stop at plotting a position with library defaults. This project goes further: it explicitly handles the things real ground-tracking software has to handle - TLE checksum validation, naive-datetime rejection, EOP staleness, propagation error codes, and degraded-mode operation when networks fail.
 
-- Python 3.10 or newer
+## What it does
 
-## Installation
+- Fetches Two-Line Element (TLE) data for any satellite by NORAD catalog number from CelesTrak
+- Validates TLE structure and checksums before propagation
+- Propagates orbital state using the SGP4 algorithm (the standard used across the space industry)
+- Converts inertial-frame state vectors (TEME) to Earth-fixed geodetic coordinates (WGS84 lat/lon/altitude) via ITRF
+- Caches TLEs locally with TTL invalidation and atomic writes
+- Falls back gracefully when CelesTrak or IERS are unreachable, with visible warnings
+- Provides a CLI with one-shot and continuous (watch) modes
+
+## Quick start
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+git clone https://github.com/Alex0420W/sgp4-satellite-tracker
+cd sgp4-satellite-tracker
 pip install -e ".[dev]"
+python -m sat_tracker
 ```
+
+That's it. First run downloads a few MB of EOP data; subsequent runs are offline-friendly within the cache TTL.
 
 ## Usage
 
 ```bash
-sat-tracker                  # current ISS sub-satellite point
-sat-tracker --catnr 20580    # Hubble
-sat-tracker --watch 5        # poll every 5 seconds, append output
-sat-tracker --verbose        # also print TEME state vectors
-sat-tracker --help           # full option list
+# Track the ISS (default)
+python -m sat_tracker
 
-python -m sat_tracker        # equivalent if the console script isn't on PATH
+# Track another satellite by NORAD catalog number
+python -m sat_tracker --catnr 20580          # Hubble Space Telescope
+
+# Include raw TEME position/velocity vectors
+python -m sat_tracker --catnr 25544 --verbose
+
+# Live updates every N seconds
+python -m sat_tracker --watch 3
+
+# Configurable failure tolerance in watch mode
+python -m sat_tracker --watch 1 --max-failures 5
 ```
+
+## Architecture
+
+Four modules, each with a single responsibility:
+
+```text
++-----------------+   TLE bytes    +----------------+   StateVector   +-------------------+
+|  tle_fetcher.py | -------------> | propagator.py  | --------------> |  coordinates.py   |
+|                 |                |                |                 |                   |
+| Fetches from    |                | Wraps SGP4 with|                 | TEME -> ITRF ->   |
+| CelesTrak with  |                | strict UTC     |                 | WGS84 geodetic    |
+| TTL cache and   |                | enforcement    |                 | with IERS EOP     |
+| stale fallback  |                | and error      |                 | data and bundled  |
+|                 |                | translation    |                 | fallback          |
++-----------------+                +----------------+                 +-------------------+
+                                                                               |
+                                                                               v
+                                                                        +-------------+
+                                                                        |   cli.py    |
+                                                                        | wires it all|
+                                                                        |  together   |
+                                                                        +-------------+
+```
+
+`config.py` provides typed, frozen configuration loaded from environment variables, injected explicitly into each module rather than read as global state.
+
+## Aerospace-software details that matter
+
+These are the things that separate a working tracker from a *correct* one:
+
+- **TLE checksum validation.** TLEs are distributed as text and can be corrupted in transit. Each line ends with a mod-10 checksum digit. We validate it before propagation - corrupted-but-well-formed TLEs would otherwise produce silently wrong positions.
+- **Strict UTC enforcement.** SGP4 expects UTC datetimes. Naive Python datetimes (no timezone info) raise a `ValueError` rather than being silently assumed UTC - a 7-hour silent timezone error translates to thousands of kilometres of position offset.
+- **Earth Orientation Parameter corrections.** TEME-to-geodetic conversion requires knowing Earth's actual rotation angle (UT1), which differs from UTC by up to ~0.9 seconds. The IERS publishes the offset as observed values plus short-term predictions. We use Skyfield's `Loader` to fetch up-to-date EOP data into the local cache; when unavailable, we fall back to Skyfield's bundled approximations and flag the resulting `GroundPosition` with `eop_degraded=True` so downstream code can react. Polar motion (x_p, y_p) is not modelled in this MVP - the ~5-10m floor it imposes at the equator is acceptable for current scope; integration is listed under future work.
+- **Graceful degradation, three places.** Stale TLE cache served when CelesTrak is unreachable. Bundled EOP used when IERS download fails. Watch-mode loop survives transient errors and aborts only after configurable consecutive failures. Each path logs visibly so degradation isn't silent.
+- **Frame discipline.** SGP4 produces state vectors in TEME (True Equator Mean Equinox); we convert through ITRF to WGS84 ellipsoidal coordinates rather than treating any of those frames as interchangeable. Each transformation is named explicitly in code and documented in module docstrings.
+- **Layered testing.** Fast-to-precise validation - smoke tests catch gross errors (LEO altitude regime, latitude bounded by orbital inclination), regression tests pin wrapper correctness against direct SGP4 invocation. Output spot-checked against `wheretheiss.at` during development.
+
+## Testing
+
+```bash
+python -m pytest -v
+```
+
+28 tests across 4 modules. Tests are isolated from network: TLE fetcher tests use mocked HTTP responses, EOP fallback tests use injected loaders, SGP4 error-code translation uses monkeypatched return values. CI-safe and deterministic.
 
 ## Configuration
 
-All configuration is via environment variables. All have sensible defaults.
+All configuration via environment variables with sensible defaults:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SAT_TRACKER_CACHE_DIR` | `./data` | Directory for cached TLE files |
-| `SAT_TRACKER_CACHE_TTL_HOURS` | `6` | Refetch a cached TLE if it is older than this |
-| `SAT_TRACKER_TLE_SOURCE_URL` | `https://celestrak.org/NORAD/elements/gp.php` | CelesTrak GP query endpoint |
-| `SAT_TRACKER_USER_AGENT` | `sat-tracker/0.1 (+github.com/myusername/sat-tracker)` | Sent on every HTTP request — CelesTrak asks clients to identify themselves |
+| `SAT_TRACKER_CACHE_DIR` | `./data` | Where TLE and EOP cache files live |
+| `SAT_TRACKER_CACHE_TTL_HOURS` | `6` | TLE cache freshness window |
+| `SAT_TRACKER_TLE_SOURCE_URL` | CelesTrak GP endpoint | TLE source (overridable for testing) |
+| `SAT_TRACKER_LOG_LEVEL` | `INFO` | Root logger level |
 | `SAT_TRACKER_HTTP_TIMEOUT_SECONDS` | `10` | HTTP request timeout |
-| `SAT_TRACKER_LOG_LEVEL` | `INFO` | Root log level (`DEBUG`/`INFO`/`WARNING`/`ERROR`) |
+| `SAT_TRACKER_USER_AGENT` | `sat-tracker/0.1 (+github.com/Alex0420W/sgp4-satellite-tracker)` | HTTP User-Agent (CelesTrak ToS) |
 
-## Project structure
+## Exit codes
 
-```
-src/sat_tracker/
-    config.py         # env-var driven configuration
-    tle_fetcher.py    # CelesTrak fetch + local cache
-    propagator.py     # SGP4 propagation
-    coordinates.py    # TEME -> lat/lon/altitude
-    cli.py            # entry point
-tests/                # pytest suite
-data/                 # local TLE cache (gitignored)
-```
+The CLI uses distinct exit codes so calling scripts can react appropriately:
 
-## Development
+- `0` - success
+- `2` - startup TLE fetch failed (bad catnr, no network and no cache)
+- `3` - startup propagation failed
+- `4` - watch mode aborted after consecutive failures exceeded threshold
+- `130` - SIGINT (Ctrl-C in watch mode)
 
-```bash
-pytest
-```
+## Tech stack
 
-## Roadmap
+- Python 3.10+
+- [`sgp4`](https://pypi.org/project/sgp4/) - Brandon Rhodes' Python port of Vallado's reference SGP4 implementation, validated against the SGP4-VER suite
+- [`skyfield`](https://rhodesmill.org/skyfield/) - time scales, EOP loading, frame conversion
+- `requests` - HTTP with connection pooling
+- `pytest` - testing
 
-- Stage 1 — MVP: fetch, propagate, print ISS position (current).
-- Stage 2 — Visualization: 2D ground tracks and 3D Earth view.
-- Stage 3 — Pass prediction.
-- Stage 4 — Web dashboard.
+## Future work
 
-## License
+- 2D ground track and 3D orbit visualization (cartopy / plotly)
+- Pass prediction for ground stations with elevation/azimuth output
+- Polar motion (x_p, y_p) integration into TEME-to-ITRF conversion
+- Streamlit web dashboard with live tracking
+- JSON output mode for piping into other tools
 
-See [LICENSE](LICENSE).
+## Author
+
+Alex Woods
+
+- LinkedIn: [linkedin.com/in/alex-woods-678826289](https://www.linkedin.com/in/alex-woods-678826289/)
+- Email: alex.binh.woods@gmail.com
+
+Built as part of preparing to apply to NASA. Feedback and suggestions welcome via issues or pull requests.
