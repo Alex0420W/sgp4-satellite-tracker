@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sat-tracker"
-version = "0.2.0"
+version = "0.2.1"
 description = "Satellite tracking and orbit propagation using TLE data and SGP4."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,11 +54,16 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-# The dashboard's curated-satellite list is a JSON asset shipped inside
-# the package. Without this declaration, `pip install .` would copy the
-# Python files but skip the JSON, breaking
-# components.load_curated_satellites() at runtime on Streamlit Cloud.
-"sat_tracker.dashboard" = ["static/*.json"]
+# Dashboard ships two non-Python assets:
+#   - static/curated_satellites.json: search list for the sidebar.
+#   - static/bundled_tles/*.txt: snapshot TLEs (ISS, Hubble) used as a
+#     last-resort fallback when the live CelesTrak fetch is blocked
+#     (Streamlit Cloud's outbound to celestrak.org is firewalled at
+#     the IP-range level — confirmed via ConnectTimeoutError).
+"sat_tracker.dashboard" = [
+    "static/*.json",
+    "static/bundled_tles/*.txt",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

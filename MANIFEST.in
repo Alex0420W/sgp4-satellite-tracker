@@ -5,3 +5,4 @@
 # pip's wheel cache reuses a wheel built before the package-data line
 # existed. Streamlit Cloud's pip install . occasionally hits the latter.
 recursive-include src/sat_tracker/dashboard/static *.json
+recursive-include src/sat_tracker/dashboard/static/bundled_tles *.txt

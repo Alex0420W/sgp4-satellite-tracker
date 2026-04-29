@@ -14,6 +14,7 @@ All tracked satellites animate together at 1 Hz over a shared
 
 from __future__ import annotations
 
+import importlib.resources
 import logging
 import threading
 import time
@@ -62,15 +63,28 @@ logger = logging.getLogger(__name__)
 
 @st.cache_resource(show_spinner=False)
 def _config() -> Config:
-    """Load runtime config, force a writable cache dir on cloud hosts.
+    """Load runtime config, force a writable cache dir, seed bundled TLEs.
 
-    The default cache_dir is ``./data`` (relative to cwd). Streamlit
-    Cloud's working directory is sometimes read-only at runtime, which
-    breaks ``TleFetcher``'s atomic-write into the cache. We re-home the
-    cache to ``$TMPDIR/sat_tracker_cache`` on every run — this directory
-    is reliably writable on every Linux/macOS host and survives across
-    reruns within the same container.
+    Three responsibilities, all motivated by Streamlit Cloud quirks:
+
+    1. The default ``cache_dir`` is ``./data`` (relative to cwd).
+       Streamlit Cloud's working directory is sometimes read-only at
+       runtime, which breaks ``TleFetcher``'s atomic-write. We re-home
+       the cache to ``$TMPDIR/sat_tracker_cache`` — reliably writable
+       on every Linux/macOS host, survives across reruns within the
+       same container.
+
+    2. Seed the cache with bundled-TLE snapshots shipped in
+       ``sat_tracker.dashboard.static.bundled_tles``. This populates
+       the cache *before* TleFetcher tries to refresh from CelesTrak;
+       so when the remote fetch times out (Streamlit Cloud's outbound
+       to celestrak.org is firewalled), TleFetcher's existing
+       stale-cache-on-failure path serves the bundled snapshot
+       instead of raising.
+
+    3. Logging configured once here.
     """
+    import shutil
     import tempfile
     from dataclasses import replace
     from pathlib import Path
@@ -79,6 +93,50 @@ def _config() -> Config:
     cache_dir = Path(tempfile.gettempdir()) / "sat_tracker_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     cfg = replace(cfg, cache_dir=cache_dir)
+
+    # Seed bundled TLEs into the cache so stale-fallback can serve
+    # them when remote fetch times out. Don't overwrite if the cache
+    # already has fresher copies (e.g. from a previous successful
+    # remote fetch in the same container).
+    #
+    # Resolve via joinpath rather than as a sub-package import so we
+    # don't need __init__.py files in static/ and static/bundled_tles/
+    # (they're data directories, not Python packages).
+    #
+    # Critical: backdate the seeded file mtime to be OLDER than the
+    # cache TTL. Otherwise TleFetcher's _is_fresh check sees a
+    # just-written file as "fresh" and skips the remote attempt
+    # entirely, which means the dashboard would serve stale bundled
+    # data even when CelesTrak is reachable. The TleFetcher's
+    # stale-fallback path catches this when the remote times out.
+    import os
+    import time as _time
+
+    backdate_age_hours = max(cfg.cache_ttl_hours, 6) * 2  # 2× TTL
+    backdate_mtime = _time.time() - backdate_age_hours * 3600
+    try:
+        bundled = (
+            importlib.resources.files("sat_tracker.dashboard")
+            .joinpath("static", "bundled_tles")
+        )
+        for resource in bundled.iterdir():
+            if not (
+                resource.name.startswith("tle_")
+                and resource.name.endswith(".txt")
+            ):
+                continue
+            target = cache_dir / resource.name
+            if target.exists():
+                continue
+            target.write_bytes(resource.read_bytes())
+            os.utime(target, (backdate_mtime, backdate_mtime))
+            logger.info(
+                "Seeded bundled TLE %s into cache (backdated for stale-fallback)",
+                resource.name,
+            )
+    except (FileNotFoundError, ModuleNotFoundError, NotADirectoryError) as exc:
+        logger.debug("No bundled TLEs available to seed: %s", exc)
+
     configure_logging(cfg)
     return cfg
 
