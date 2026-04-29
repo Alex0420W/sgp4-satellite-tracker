@@ -49,12 +49,10 @@ _WGS84_B_KM: float = _WGS84_A_KM * (1.0 - _WGS84_F)
 # because at 3D camera distances the lighter shade washed out and the
 # globe stopped looking like Earth.
 _OCEAN_BASE = "#2c4a6e"
-# Continental tan that reads as land from space. Brighter than the
-# obvious "khaki" tone because plotly's lighting model averages the
-# surfacecolor with a heavy ambient term, desaturating both ocean and
-# land. Pushing land toward a warm sandy hue keeps it distinct against
-# the dark blue ocean even after the lighting wash.
-_LAND_BASE = "#c8a878"
+# White continents on dark ocean — high-contrast monochrome look,
+# reminiscent of aviation chart aesthetics. Pure white survives
+# plotly's heavy ambient lighting wash without losing legibility.
+_LAND_BASE = "#ffffff"
 # Off-white coastlines pop against the dark ocean — same readability
 # strategy NASA Blue Marble uses for low-bandwidth web previews.
 _COASTLINE_COLOR = "#e8e8d8"
