@@ -44,6 +44,7 @@ def config(tmp_path: Path) -> Config:
         user_agent="sat-tracker-tests/1.0",
         http_timeout_seconds=5,
         log_level="DEBUG",
+        min_elevation_deg=10.0,
     )
 
 

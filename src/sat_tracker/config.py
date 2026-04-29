@@ -18,6 +18,7 @@ _DEFAULT_TLE_SOURCE_URL = "https://celestrak.org/NORAD/elements/gp.php"
 _DEFAULT_USER_AGENT = "sat-tracker/0.1 (+github.com/Alex0420W/sgp4-satellite-tracker)"
 _DEFAULT_HTTP_TIMEOUT_SECONDS = 10
 _DEFAULT_LOG_LEVEL = "INFO"
+_DEFAULT_MIN_ELEVATION_DEG = 10.0
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class Config:
     user_agent: str
     http_timeout_seconds: int
     log_level: str
+    min_elevation_deg: float
 
 
 def _env_int(name: str, default: int) -> int:
@@ -50,6 +52,18 @@ def _env_int(name: str, default: int) -> int:
     except ValueError as exc:
         raise ValueError(
             f"Environment variable {name}={raw!r} is not a valid integer."
+        ) from exc
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"Environment variable {name}={raw!r} is not a valid float."
         ) from exc
 
 
@@ -77,6 +91,9 @@ def load_config() -> Config:
             "SAT_TRACKER_HTTP_TIMEOUT_SECONDS", _DEFAULT_HTTP_TIMEOUT_SECONDS
         ),
         log_level=os.environ.get("SAT_TRACKER_LOG_LEVEL", _DEFAULT_LOG_LEVEL).upper(),
+        min_elevation_deg=_env_float(
+            "SAT_TRACKER_MIN_ELEVATION_DEG", _DEFAULT_MIN_ELEVATION_DEG
+        ),
     )
 
 

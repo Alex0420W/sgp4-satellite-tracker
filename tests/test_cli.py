@@ -19,12 +19,16 @@ import pytest
 
 from sat_tracker import cli as cli_module
 from sat_tracker.cli import (
+    _normalize_argv,
     _run_watch,
     main,
+    passes_to_list,
     position_to_dict,
+    render_passes,
     render_position,
 )
 from sat_tracker.coordinates import GroundPosition
+from sat_tracker.passes import GroundStation, Pass
 from sat_tracker.propagator import PropagationError, StateVector
 from sat_tracker.tle_fetcher import Tle, TleFetchError
 
@@ -283,3 +287,102 @@ def test_main_returns_three_on_propagation_error(
     monkeypatch.setattr(cli_module, "propagate", _raise_propagation)
 
     assert main(["--catnr", "25544"]) == 3
+
+
+# -- argv normalisation (default-to-now) --------------------------------------
+
+
+def test_normalize_argv_empty_defaults_to_now() -> None:
+    assert _normalize_argv([]) == ["now"]
+
+
+def test_normalize_argv_bare_flags_prepend_now() -> None:
+    assert _normalize_argv(["--catnr", "25544"]) == ["now", "--catnr", "25544"]
+
+
+def test_normalize_argv_keeps_known_subcommand() -> None:
+    assert _normalize_argv(["passes", "--lat", "0"]) == ["passes", "--lat", "0"]
+    assert _normalize_argv(["now", "--watch", "5"]) == ["now", "--watch", "5"]
+
+
+def test_normalize_argv_keeps_top_level_help() -> None:
+    assert _normalize_argv(["--help"]) == ["--help"]
+    assert _normalize_argv(["-h"]) == ["-h"]
+
+
+# -- passes rendering --------------------------------------------------------
+
+
+@pytest.fixture
+def sample_pass() -> Pass:
+    return Pass(
+        satellite_catnr=25544,
+        satellite_name="ISS (ZARYA)",
+        aos_utc=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        los_utc=datetime(2024, 1, 1, 12, 7, 13, tzinfo=timezone.utc),
+        max_elevation_deg=47.3,
+        max_elevation_time_utc=datetime(2024, 1, 1, 12, 3, 36, tzinfo=timezone.utc),
+        azimuth_at_aos_deg=312.2,
+        azimuth_at_max_deg=28.4,
+        azimuth_at_los_deg=104.8,
+        sunlit=True,
+        eop_degraded=False,
+    )
+
+
+@pytest.fixture
+def sample_station() -> GroundStation:
+    return GroundStation(
+        latitude_deg=40.59,
+        longitude_deg=-105.08,
+        altitude_km=1.5,
+        name="Fort Collins",
+    )
+
+
+def test_passes_to_list_keys(sample_pass: Pass) -> None:
+    out = passes_to_list([sample_pass])
+    assert len(out) == 1
+    d = out[0]
+    assert d["catalog_number"] == 25544
+    assert d["max_elevation_deg"] == pytest.approx(47.3)
+    assert d["sunlit"] is True
+    assert d["duration_seconds"] == pytest.approx(7 * 60 + 13)
+
+
+def test_render_passes_basic(
+    sample_pass: Pass, sample_station: GroundStation
+) -> None:
+    out = render_passes([sample_pass], sample_station, hours=24)
+    assert "ISS (ZARYA)" in out
+    assert "[25544]" in out
+    assert "Fort Collins" in out
+    assert "40.5900°N" in out
+    assert "105.0800°W" in out
+    assert "1 pass(es)" in out
+    assert "47.3" in out
+    assert "sunlit (visible)" in out
+
+
+def test_render_passes_empty(sample_station: GroundStation) -> None:
+    out = render_passes([], sample_station, hours=24)
+    assert "No complete passes" in out
+    assert "Fort Collins" in out
+
+
+def test_render_passes_visibility_branches(
+    sample_pass: Pass, sample_station: GroundStation
+) -> None:
+    eclipsed = Pass(**{**sample_pass.__dict__, "sunlit": False})
+    unknown = Pass(**{**sample_pass.__dict__, "sunlit": None})
+    assert "Earth's shadow" in render_passes([eclipsed], sample_station, 24)
+    assert "no ephemeris" in render_passes([unknown], sample_station, 24)
+
+
+def test_render_passes_eop_note_when_degraded(
+    sample_pass: Pass, sample_station: GroundStation
+) -> None:
+    degraded = Pass(**{**sample_pass.__dict__, "eop_degraded": True})
+    out = render_passes([degraded], sample_station, 24)
+    assert "EOP" in out
+    assert "degraded" in out

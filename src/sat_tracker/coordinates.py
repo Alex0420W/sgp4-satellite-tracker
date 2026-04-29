@@ -114,6 +114,17 @@ class CoordinateConverter:
         """Whether this converter is operating on bundled (offline) EOP data."""
         return self._eop_degraded
 
+    @property
+    def timescale(self) -> Timescale:
+        """The loaded Skyfield Timescale.
+
+        Intentionally public — downstream modules (notably
+        :mod:`sat_tracker.passes`) reuse this Timescale rather than
+        re-downloading EOP data. The shared object also makes the
+        :attr:`eop_degraded` flag consistent across modules.
+        """
+        return self._timescale
+
     def teme_to_ground(self, state: StateVector) -> GroundPosition:
         """Convert a TEME state vector to a WGS84 ground position.
 

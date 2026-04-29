@@ -52,7 +52,35 @@ python -m sat_tracker --watch 3
 
 # Configurable failure tolerance in watch mode
 python -m sat_tracker --watch 1 --max-failures 5
+
+# Predict ISS passes over a ground station for the next 24 hours
+python -m sat_tracker passes --catnr 25544 --lat 40.59 --lon -105.08 --alt-km 1.5 --hours 24
 ```
+
+## Pass prediction
+
+`sat-tracker passes` finds upcoming visible passes of a satellite over a ground station, including AOS / max-elevation / LOS times, azimuths at each, and a sunlit-vs-eclipsed visibility flag.
+
+```text
+$ python -m sat_tracker passes --catnr 25544 --lat 40.59 --lon -105.08 --alt-km 1.5 --hours 24 --station-name "Fort Collins"
+ISS (ZARYA) [25544] passes over Fort Collins (40.5900°N, 105.0800°W)
+3 pass(es) found in 24h window.
+
+Pass 1 (duration 432s, max elevation 47.3°)
+  AOS: 2026-04-29 02:14:33 UTC  az=312.2°
+  MAX: 2026-04-29 02:18:11 UTC  az= 28.4°  el= 47.3°
+  LOS: 2026-04-29 02:21:48 UTC  az=104.8°
+  Visibility: sunlit (visible)
+
+Pass 2 ...
+```
+
+Notes:
+
+- **Default minimum elevation is 10°** (configurable via `SAT_TRACKER_MIN_ELEVATION_DEG` or `--min-elevation`). Below 10° atmospheric refraction and absorption make tracking unreliable for amateur stations.
+- **Geostationary / deep-space satellites are gated out** before prediction — they do not "pass" over a fixed observer. The CLI returns an empty list and logs the actual mean motion.
+- **Sunlit flag** uses Skyfield's planetary ephemeris (`de421.bsp`, ~16 MB, downloaded on first use). On ephemeris failure the flag becomes `None` (visibility unknown) but pass *timing* is unaffected.
+- **Incomplete passes are skipped.** A pass that started before the window opens or hasn't finished by the time it closes is not reported — only passes with a complete rise + culminate + set inside the window appear in the output.
 
 ## Architecture
 
@@ -78,6 +106,10 @@ Four modules, each with a single responsibility:
 ```
 
 `config.py` provides typed, frozen configuration loaded from environment variables, injected explicitly into each module rather than read as global state.
+
+`passes.py` (added in stage 6) takes a `Tle` plus a `GroundStation` and returns a list of `Pass` objects. It reuses the `Timescale` already loaded by `coordinates.CoordinateConverter` so EOP data is loaded once per run.
+
+**Two SGP4 propagation paths.** `propagator.py` calls the `sgp4` library directly (`Satrec.sgp4()`) for single-instant TEME state evaluation — this is what feeds the "current position" CLI. `passes.py` uses Skyfield's higher-level `EarthSatellite.find_events()` for AOS / culminate / LOS root-finding, because reimplementing robust elevation-threshold root-finding (with proper handling of short passes, circumpolar geometries, and numerical edge cases) is significantly more work than reimplementing single-instant propagation. Both paths produce identical positions — Skyfield wraps the same `sgp4` library internally — but expose different APIs. This is a deliberate architectural choice; see the module docstring at the top of `passes.py`.
 
 ## Aerospace-software details that matter
 
@@ -110,6 +142,7 @@ All configuration via environment variables with sensible defaults:
 | `SAT_TRACKER_LOG_LEVEL` | `INFO` | Root logger level |
 | `SAT_TRACKER_HTTP_TIMEOUT_SECONDS` | `10` | HTTP request timeout |
 | `SAT_TRACKER_USER_AGENT` | `sat-tracker/0.1 (+github.com/Alex0420W/sgp4-satellite-tracker)` | HTTP User-Agent (CelesTrak ToS) |
+| `SAT_TRACKER_MIN_ELEVATION_DEG` | `10.0` | Minimum elevation threshold for pass detection (degrees) |
 
 ## Exit codes
 
