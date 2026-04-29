@@ -19,6 +19,7 @@ caller actually invokes one of the builders.
 
 from __future__ import annotations
 
+import functools
 import logging
 import math
 from datetime import datetime, timezone
@@ -48,6 +49,12 @@ _WGS84_B_KM: float = _WGS84_A_KM * (1.0 - _WGS84_F)
 # because at 3D camera distances the lighter shade washed out and the
 # globe stopped looking like Earth.
 _OCEAN_BASE = "#2c4a6e"
+# Continental tan that reads as land from space. Brighter than the
+# obvious "khaki" tone because plotly's lighting model averages the
+# surfacecolor with a heavy ambient term, desaturating both ocean and
+# land. Pushing land toward a warm sandy hue keeps it distinct against
+# the dark blue ocean even after the lighting wash.
+_LAND_BASE = "#c8a878"
 # Off-white coastlines pop against the dark ocean — same readability
 # strategy NASA Blue Marble uses for low-bandwidth web previews.
 _COASTLINE_COLOR = "#e8e8d8"
@@ -492,20 +499,29 @@ def _add_earth_sphere(fig) -> None:
     x = n_radius * cos_lat * cos_lon
     y = n_radius * cos_lat * sin_lon
     z = n_radius * (1.0 - e2) * sin_lat
+
+    # Per-cell land/ocean mask drives the surfacecolor; combined with a
+    # two-stop colorscale [ocean, land] this fills continents at zero
+    # per-frame cost. Plotly's smooth interpolation between the two
+    # stops produces a soft natural coastline transition for free.
+    surface_color = _land_mask(_SPHERE_LAT_STEPS, _SPHERE_LON_STEPS)
+
     fig.add_trace(
         go.Surface(
             x=x,
             y=y,
             z=z,
-            surfacecolor=np.zeros_like(x),
-            colorscale=[[0, _OCEAN_BASE], [1, _OCEAN_BASE]],
+            surfacecolor=surface_color,
+            cmin=0.0,
+            cmax=1.0,
+            colorscale=[[0, _OCEAN_BASE], [1, _LAND_BASE]],
             showscale=False,
             hoverinfo="skip",
             lighting=dict(
-                ambient=0.85,
-                diffuse=0.4,
-                specular=0.1,
-                roughness=0.95,
+                ambient=0.65,
+                diffuse=0.55,
+                specular=0.08,
+                roughness=0.92,
                 fresnel=0.05,
             ),
             lightposition=dict(x=10000, y=10000, z=8000),
@@ -514,6 +530,56 @@ def _add_earth_sphere(fig) -> None:
             showlegend=False,
         )
     )
+
+
+@functools.lru_cache(maxsize=4)
+def _land_mask(lat_steps: int, lon_steps: int):
+    """Build a (lat_steps × lon_steps) array: 1.0 where land, 0.0 where ocean.
+
+    Uses cartopy's bundled Natural Earth ``ne_110m_land`` polygon set
+    plus shapely's prepared-geometry contains for fast point-in-polygon
+    over ~10K cells. Cached for the process so the cost is paid once
+    per worker — not on every figure build.
+
+    On any failure (shapely missing, shapefile unavailable, etc.) falls
+    back to all-ocean, which produces the original featureless-sphere
+    look rather than crashing the dashboard.
+    """
+    import numpy as np
+
+    try:
+        import cartopy.io.shapereader as shpreader
+        from shapely.geometry import Point
+        from shapely.ops import unary_union
+        from shapely.prepared import prep
+    except ImportError as exc:
+        logger.warning(
+            "land-mask deps missing (%s); Earth sphere will be flat ocean", exc
+        )
+        return np.zeros((lat_steps, lon_steps))
+
+    try:
+        land_path = shpreader.natural_earth(
+            resolution="110m", category="physical", name="land"
+        )
+        land_geoms = list(shpreader.Reader(land_path).geometries())
+        land_union = unary_union(land_geoms)
+        land_prep = prep(land_union)
+    except Exception as exc:
+        logger.warning(
+            "Natural Earth land shapefile unavailable (%s); using flat ocean",
+            exc,
+        )
+        return np.zeros((lat_steps, lon_steps))
+
+    lats_deg = np.linspace(-90.0, 90.0, lat_steps)
+    lons_deg = np.linspace(-180.0, 180.0, lon_steps)
+    mask = np.zeros((lat_steps, lon_steps))
+    for i, lat in enumerate(lats_deg):
+        for j, lon in enumerate(lons_deg):
+            if land_prep.contains(Point(float(lon), float(lat))):
+                mask[i, j] = 1.0
+    return mask
 
 
 def _add_coastlines(fig) -> None:
