@@ -159,3 +159,127 @@ def test_malformed_line_length_raises(config: Config) -> None:
 
     with pytest.raises(TleFetchError, match="length"):
         fetcher.fetch(12345)
+
+
+# -- fetch_group --------------------------------------------------------------
+#
+# Synthetic 4-satellite group response. We build it from the known-valid ISS
+# fixture by swapping the catalog-number field and re-computing the mod-10
+# checksum, so each line stays structurally valid (length, prefix, checksum,
+# matching catnrs across line1/line2). The test fixture is fully synthetic —
+# satellite identities don't correspond to real groups.
+
+
+def _swap_tle_catnr(line: str, new_catnr: int) -> str:
+    """Replace the 5-char catalog-number field at positions 2..6 and
+    recompute the line's mod-10 checksum."""
+    from sat_tracker.tle_fetcher import _checksum
+
+    body = line[:2] + f"{new_catnr:05d}" + line[7:-1]
+    return body + str(_checksum(body))
+
+
+@pytest.fixture
+def group_response_body(iss_tle: tuple[str, str, str]) -> tuple[str, list[tuple[str, str, str]]]:
+    """Return a (body, satellites) pair of a synthetic 4-sat 'stations' group."""
+    _name, iss_l1, iss_l2 = iss_tle
+    sats = []
+    for catnr, name in [
+        (25544, "ISS (ZARYA)"),
+        (20580, "HST"),
+        (43013, "NOAA 20 (JPSS-1)"),
+        (29155, "GOES 13"),
+    ]:
+        l1 = _swap_tle_catnr(iss_l1, catnr)
+        l2 = _swap_tle_catnr(iss_l2, catnr)
+        sats.append((name, l1, l2))
+    body = "\r\n".join(f"{n}\r\n{l1}\r\n{l2}" for n, l1, l2 in sats) + "\r\n"
+    return body, sats
+
+
+def test_fetch_group_writes_manifest_and_per_catnr_files(
+    config: Config,
+    group_response_body: tuple[str, list[tuple[str, str, str]]],
+) -> None:
+    body, sats = group_response_body
+    session = _FakeSession(response=_FakeResponse(body))
+    fetcher = TleFetcher(config, session=session)
+
+    tles = fetcher.fetch_group("stations")
+
+    assert len(tles) == 4
+    assert {t.catalog_number for t in tles} == {25544, 20580, 43013, 29155}
+    assert {t.name for t in tles} == {sat[0] for sat in sats}
+
+    for catnr in (25544, 20580, 43013, 29155):
+        assert (config.cache_dir / f"tle_{catnr}.txt").exists()
+
+    manifest = config.cache_dir / "tle_group_stations.txt"
+    assert manifest.exists()
+    catnrs = [
+        int(line.strip())
+        for line in manifest.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert set(catnrs) == {25544, 20580, 43013, 29155}
+
+
+def test_fetch_group_cache_hit_skips_network(
+    config: Config,
+    group_response_body: tuple[str, list[tuple[str, str, str]]],
+) -> None:
+    body, _sats = group_response_body
+    # First fetch populates the cache.
+    TleFetcher(
+        config, session=_FakeSession(response=_FakeResponse(body))
+    ).fetch_group("stations")
+
+    forbidden = _FakeSession(exc=AssertionError("network must not be called"))
+    second = TleFetcher(config, session=forbidden)
+    tles = second.fetch_group("stations")
+
+    assert forbidden.calls == 0
+    assert len(tles) == 4
+
+
+def test_fetch_group_stale_fallback_on_network_error(
+    config: Config,
+    group_response_body: tuple[str, list[tuple[str, str, str]]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    body, _sats = group_response_body
+
+    # Populate cache, then backdate the manifest so it's stale.
+    TleFetcher(
+        config, session=_FakeSession(response=_FakeResponse(body))
+    ).fetch_group("stations")
+    manifest = config.cache_dir / "tle_group_stations.txt"
+    old = time.time() - 24 * 3600
+    os.utime(manifest, (old, old))
+
+    failing = _FakeSession(exc=requests.ConnectionError("network down"))
+    fetcher = TleFetcher(config, session=failing)
+
+    with caplog.at_level(logging.WARNING, logger="sat_tracker.tle_fetcher"):
+        tles = fetcher.fetch_group("stations")
+
+    assert len(tles) == 4
+    assert "stale" in caplog.text.lower()
+    assert "network down" in caplog.text
+
+
+def test_fetch_group_no_data_response_raises(config: Config) -> None:
+    session = _FakeSession(response=_FakeResponse("No GP data found"))
+    fetcher = TleFetcher(config, session=session)
+
+    with pytest.raises(TleFetchError, match="no.*data"):
+        fetcher.fetch_group("nonexistent-group")
+
+
+def test_fetch_group_truncated_entry_raises(config: Config) -> None:
+    """Last entry with only line1 (no line2) — must surface as TleFetchError."""
+    bad_body = "ISS (ZARYA)\r\n1 25544U 98067A   24001.54791667  ...\r\n"
+    session = _FakeSession(response=_FakeResponse(bad_body))
+    fetcher = TleFetcher(config, session=session)
+    with pytest.raises(TleFetchError):
+        fetcher.fetch_group("anything")

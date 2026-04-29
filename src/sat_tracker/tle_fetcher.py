@@ -90,6 +90,145 @@ class TleFetcher:
     ) -> None:
         self.close()
 
+    def fetch_group(self, group_name: str) -> list[Tle]:
+        """Fetch a CelesTrak satellite group and return its current TLEs.
+
+        Cache layout for groups (hybrid):
+            * One file per satellite at ``tle_<catnr>.txt`` (canonical TLE
+              storage, shared with the single-catnr :meth:`fetch`). No
+              duplicate storage.
+            * One small manifest at ``tle_group_<group>.txt`` listing the
+              catalog numbers in the group, one per line.
+
+        Stale-cache nuance — *intentional behaviour*: per-catnr cache files
+        persist beyond the group manifest's TTL. If a satellite leaves a
+        group between two ``fetch_group`` calls, its individual
+        ``tle_<catnr>.txt`` file remains in the cache until invalidated by
+        a separate ``fetch(catnr)`` call. A subsequent ``fetch(catnr)`` for
+        a since-departed satellite therefore returns the last-known TLE
+        rather than 404'ing. This preserves cache reuse across the
+        single-vs-group fetch paths and is a deliberate design decision.
+
+        On remote fetch failure, falls back to the stale group cache (if
+        any) with a warning log — matches the graceful-degradation pattern
+        used by :meth:`fetch`.
+
+        Args:
+            group_name: CelesTrak ``GROUP`` identifier
+                (e.g. ``"stations"``, ``"starlink"``, ``"gps-ops"``).
+
+        Returns:
+            A list of validated :class:`Tle` objects, one per satellite
+            currently in the group.
+
+        Raises:
+            TleFetchError: If no manifest exists *and* the remote fetch fails.
+        """
+        manifest_path = self._group_manifest_path(group_name)
+
+        if manifest_path.exists() and self._is_fresh(manifest_path):
+            try:
+                tles = self._read_group_from_cache(manifest_path)
+                logger.debug(
+                    "Group cache hit for group=%r (%d satellites)",
+                    group_name,
+                    len(tles),
+                )
+                return tles
+            except (TleFetchError, ValueError, OSError) as exc:
+                logger.warning(
+                    "Manifest fresh but per-catnr read failed (%s); "
+                    "refetching group=%r.",
+                    exc,
+                    group_name,
+                )
+
+        try:
+            tles = self._fetch_remote_group(group_name)
+        except (requests.RequestException, TleFetchError) as exc:
+            if manifest_path.exists():
+                try:
+                    stale = self._read_group_from_cache(manifest_path)
+                    age_hours = (
+                        time.time() - manifest_path.stat().st_mtime
+                    ) / 3600.0
+                    logger.warning(
+                        "Group fetch failed for group=%r (%s); serving stale "
+                        "cache (age=%.1fh, %d satellites).",
+                        group_name,
+                        exc,
+                        age_hours,
+                        len(stale),
+                    )
+                    return stale
+                except Exception as inner:  # noqa: BLE001
+                    logger.warning(
+                        "Stale group cache fallback failed (%s); raising "
+                        "original network error.",
+                        inner,
+                    )
+            raise TleFetchError(
+                f"No cached group {group_name!r} and remote fetch failed: "
+                f"{exc}"
+            ) from exc
+
+        catnrs: list[int] = []
+        for tle in tles:
+            self._write_cache(self._cache_path(tle.catalog_number), tle)
+            catnrs.append(tle.catalog_number)
+        self._write_manifest(manifest_path, catnrs)
+        logger.info(
+            "Group refreshed for group=%r (%d satellites)",
+            group_name,
+            len(tles),
+        )
+        return tles
+
+    def _read_group_from_cache(self, manifest_path: Path) -> list[Tle]:
+        """Read a group manifest and load each per-catnr TLE from cache."""
+        catnrs = self._read_manifest(manifest_path)
+        tles: list[Tle] = []
+        for c in catnrs:
+            cache_path = self._cache_path(c)
+            if not cache_path.exists():
+                raise TleFetchError(
+                    f"per-catnr cache missing for {c} (manifest claims it "
+                    f"belongs to the group)"
+                )
+            tles.append(self._read_cache(cache_path))
+        return tles
+
+    def _group_manifest_path(self, group_name: str) -> Path:
+        # Sanitise so an arbitrary group name can't escape the cache dir.
+        safe = group_name.replace("/", "_").replace("\\", "_")
+        return self._config.cache_dir / f"tle_group_{safe}.txt"
+
+    def _read_manifest(self, path: Path) -> list[int]:
+        out: list[int] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            out.append(int(line))
+        return out
+
+    def _write_manifest(self, path: Path, catnrs: list[int]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        body = "\n".join(str(c) for c in catnrs) + "\n"
+        tmp_path.write_text(body, encoding="utf-8")
+        tmp_path.replace(path)  # atomic on the same filesystem
+
+    def _fetch_remote_group(self, group_name: str) -> list[Tle]:
+        params = {"GROUP": group_name, "FORMAT": "tle"}
+        response = self._session.get(
+            self._config.tle_source_url,
+            params=params,
+            timeout=self._config.http_timeout_seconds,
+        )
+        response.raise_for_status()
+        return _parse_multi_tle_text(response.text)
+
     def fetch(self, catalog_number: int) -> Tle:
         """Return the current TLE for the given NORAD catalog number.
 
@@ -204,6 +343,70 @@ def _parse_tle_text(text: str) -> Tle:
         )
 
     return Tle(name=name, line1=line1, line2=line2)
+
+
+def _parse_multi_tle_text(text: str) -> list[Tle]:
+    """Parse a CelesTrak multi-TLE response (group endpoint).
+
+    Accepts both 3-line entries (name + line1 + line2) and 2-line entries
+    (line1 + line2 only). CelesTrak's group endpoint emits 3-line by
+    default, but the parser is tolerant of 2-line in case a future endpoint
+    or a custom source ever drops the names.
+
+    Args:
+        text: Raw response body.
+
+    Returns:
+        A list of validated :class:`Tle` in the order they appear in the
+        response.
+
+    Raises:
+        TleFetchError: On empty body, "no GP data found" sentinel, truncated
+            entries, or per-line validation failure (length / prefix /
+            checksum / catalog-number mismatch).
+    """
+    if not text or not text.strip():
+        raise TleFetchError("Empty group TLE response.")
+
+    if "no gp data found" in text.lower():
+        raise TleFetchError(
+            f"CelesTrak returned no group data: {text.strip()!r}"
+        )
+
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+
+    tles: list[Tle] = []
+    i = 0
+    while i < len(lines):
+        if lines[i].startswith("1 "):
+            # Two-line entry, no name.
+            if i + 1 >= len(lines):
+                raise TleFetchError(
+                    f"Truncated TLE at line index {i}: missing line 2"
+                )
+            name: Optional[str] = None
+            line1, line2 = lines[i], lines[i + 1]
+            i += 2
+        else:
+            # Three-line entry: name + line1 + line2.
+            if i + 2 >= len(lines):
+                raise TleFetchError(
+                    f"Truncated TLE at line index {i}: missing data lines"
+                )
+            name = lines[i].strip()
+            line1, line2 = lines[i + 1], lines[i + 2]
+            i += 3
+
+        _validate_tle_line(line1, expected_first_char="1")
+        _validate_tle_line(line2, expected_first_char="2")
+        if line1[2:7] != line2[2:7]:
+            raise TleFetchError(
+                f"Catalog number mismatch in group entry: "
+                f"{line1[2:7]!r} vs {line2[2:7]!r}"
+            )
+        tles.append(Tle(name=name, line1=line1, line2=line2))
+
+    return tles
 
 
 def _validate_tle_line(line: str, expected_first_char: str) -> None:
