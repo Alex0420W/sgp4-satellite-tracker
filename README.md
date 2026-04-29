@@ -1,6 +1,6 @@
 # sgp4-satellite-tracker
 
-> **🛰 Try it live:** [__LIVE_URL__](__LIVE_URL__)
+> **🛰 Try it live:** [https://sat-tracker-alex.streamlit.app/](https://sat-tracker-alex.streamlit.app/)
 >
 > Live SGP4 satellite tracking in your browser. ISS pre-loaded, click + add Hubble or GPS or Starlink, switch between 3D Earth-fixed and 2D ground-track views, predict passes from 10 preset ground stations or your own coordinates, follow any satellite with the camera. **Best viewed on desktop**; mobile is functional but cramped.
 
@@ -60,9 +60,9 @@ That's it. First run downloads a few MB of EOP data; subsequent runs are offline
 
 ## Dashboard
 
-The deployable artifact: a single web URL at [__LIVE_URL__](__LIVE_URL__) that opens directly into a 3D ECEF view of the ISS, animation auto-playing at 1 Hz. Add satellites via the sidebar (search a curated 100+ list, type a NORAD catnr, or click a CelesTrak-group button to load Stations / GPS-OPS / Starlink-top-50 / etc.). Tab to the 2D ground-track view; the same tracked-list and animation state carry across.
+The deployable artifact: a single web URL at [https://sat-tracker-alex.streamlit.app/](https://sat-tracker-alex.streamlit.app/) that opens directly into a 3D ECEF view of the ISS, animation auto-playing at 1 Hz. Add satellites via the sidebar (search a curated 100+ list, type a NORAD catnr, or click a CelesTrak-group button to load Stations / GPS-OPS / Starlink-top-50 / etc.). Tab to the 2D ground-track view; the same tracked-list and animation state carry across.
 
-[![Dashboard, dark theme, ISS in 3D with passes panel](screenshots/dashboard_hero.png)](__LIVE_URL__)
+[![Dashboard, dark theme, ISS in 3D with passes panel](screenshots/dashboard_hero.png)](https://sat-tracker-alex.streamlit.app/)
 
 Notable features:
 
