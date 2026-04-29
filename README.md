@@ -21,7 +21,13 @@ pip install -e ".[dev]"
 ## Usage
 
 ```bash
-sat-tracker            # prints current ISS position (coming soon)
+sat-tracker                  # current ISS sub-satellite point
+sat-tracker --catnr 20580    # Hubble
+sat-tracker --watch 5        # poll every 5 seconds, append output
+sat-tracker --verbose        # also print TEME state vectors
+sat-tracker --help           # full option list
+
+python -m sat_tracker        # equivalent if the console script isn't on PATH
 ```
 
 ## Configuration
