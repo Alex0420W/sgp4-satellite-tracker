@@ -28,6 +28,12 @@ dependencies = [
 dev = [
     "pytest>=7.4",
 ]
+viz = [
+    "cartopy>=0.22",
+    "matplotlib>=3.7",
+    "plotly>=5.18",
+    "kaleido>=0.2,<1.0",
+]
 
 [project.scripts]
 sat-tracker = "sat_tracker.cli:main"

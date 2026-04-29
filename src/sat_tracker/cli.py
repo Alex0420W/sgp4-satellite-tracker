@@ -2,8 +2,9 @@
 
 Subcommands::
 
-    sat-tracker now [--catnr N] [--watch S] [--verbose] [--max-failures N]
+    sat-tracker now    [--catnr N] [--watch S] [--verbose] [--max-failures N]
     sat-tracker passes --lat L --lon L [--alt-km A] [--hours H] ...
+    sat-tracker plot   [--catnr N] [--catnr N ...] --output FILE [...]
 
 For backward compatibility, invoking ``sat-tracker`` (no subcommand) is
 equivalent to ``sat-tracker now``. Bare flags without a subcommand are
@@ -21,7 +22,8 @@ import argparse
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 from sat_tracker.config import Config, configure_logging, load_config
@@ -36,13 +38,14 @@ _DEFAULT_CATNR = 25544          # ISS (ZARYA)
 _DEFAULT_MAX_FAILURES = 10
 _DEFAULT_HOURS = 24.0
 
-_KNOWN_SUBCOMMANDS = frozenset({"now", "passes"})
+_KNOWN_SUBCOMMANDS = frozenset({"now", "passes", "plot"})
 
 # Exit codes — distinct enough that watch-mode CI checks can disambiguate.
 _EXIT_OK = 0
 _EXIT_TLE_FETCH = 2
 _EXIT_PROPAGATION = 3
 _EXIT_WATCH_ABORTED = 4
+_EXIT_PLOT = 5
 _EXIT_INTERRUPTED = 130
 
 
@@ -374,6 +377,68 @@ def _build_parser() -> argparse.ArgumentParser:
             "(degrees; default uses config)."
         ),
     )
+
+    # 'plot'
+    plot_parser = subparsers.add_parser(
+        "plot",
+        help="Render a ground track to an image or interactive HTML file.",
+        description=(
+            "Render one or more satellite ground tracks to a static image "
+            "(cartopy + matplotlib) or interactive HTML map (plotly). "
+            "Requires the [viz] extra: pip install -e '.[viz]'."
+        ),
+    )
+    plot_parser.add_argument(
+        "-c",
+        "--catnr",
+        type=int,
+        action="append",
+        metavar="N",
+        help=(
+            "NORAD catalog number. Repeat to plot multiple satellites "
+            f"on the same map. Defaults to {_DEFAULT_CATNR} (ISS) when omitted."
+        ),
+    )
+    plot_parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        metavar="PATH",
+        help=(
+            "Output file. Suffix selects backend & format: .png/.pdf/.svg "
+            "use cartopy; .html uses plotly (interactive)."
+        ),
+    )
+    plot_parser.add_argument(
+        "--hours",
+        type=float,
+        default=None,
+        metavar="H",
+        help=(
+            "Window length in hours, centred on now. Default is one full "
+            "orbital period of the first satellite."
+        ),
+    )
+    plot_parser.add_argument(
+        "--start-utc",
+        default=None,
+        metavar="ISO8601",
+        help=(
+            "Override window start (ISO 8601, e.g. 2026-04-28T12:00:00Z). "
+            "Defaults to now − window/2."
+        ),
+    )
+    plot_parser.add_argument(
+        "--no-now-marker",
+        action="store_true",
+        help="Suppress the gold star 'current position' marker.",
+    )
+    plot_parser.add_argument(
+        "--title",
+        default=None,
+        metavar="STR",
+        help="Override the plot title.",
+    )
     return parser
 
 
@@ -431,12 +496,109 @@ def _dispatch_passes(
     return _EXIT_OK
 
 
+def _dispatch_plot(
+    args: argparse.Namespace,
+    fetcher: TleFetcher,
+    converter: CoordinateConverter,
+) -> int:
+    # Defer the visualization import — keeps `now` and `passes` callable on
+    # machines without the [viz] extras installed.
+    try:
+        from sat_tracker.visualization.common import (
+            default_window_seconds,
+            precompute_track,
+        )
+    except ImportError as exc:  # pragma: no cover — defensive
+        print(f"error: cannot import visualization module: {exc}", file=sys.stderr)
+        return _EXIT_PLOT
+
+    catnrs: list[int] = args.catnr or [_DEFAULT_CATNR]
+    tles: list[Tle] = [fetcher.fetch(c) for c in catnrs]
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    if args.hours is not None:
+        if args.hours <= 0:
+            print("error: --hours must be positive", file=sys.stderr)
+            return _EXIT_PLOT
+        duration_s = args.hours * 3600.0
+    else:
+        duration_s = default_window_seconds(tles[0])
+
+    if args.start_utc is not None:
+        start = _parse_iso_utc(args.start_utc)
+        if start is None:
+            print(
+                f"error: --start-utc {args.start_utc!r} is not a valid "
+                f"ISO 8601 timestamp",
+                file=sys.stderr,
+            )
+            return _EXIT_PLOT
+    else:
+        start = now - timedelta(seconds=duration_s / 2)
+
+    tracks = [
+        precompute_track(
+            tle, converter, start_utc=start, duration_seconds=duration_s
+        )
+        for tle in tles
+    ]
+
+    output_path = Path(args.output)
+    suffix = output_path.suffix.lower()
+    current_time = None if args.no_now_marker else now
+
+    try:
+        if suffix in {".html", ".htm"}:
+            from sat_tracker.visualization.interactive import (
+                render_interactive_ground_track,
+            )
+            written = render_interactive_ground_track(
+                tracks if len(tracks) > 1 else tracks[0],
+                output_path,
+                current_time_utc=current_time,
+                title=args.title,
+            )
+        else:
+            from sat_tracker.visualization.ground_track import (
+                render_ground_track,
+            )
+            written = render_ground_track(
+                tracks if len(tracks) > 1 else tracks[0],
+                output_path,
+                current_time_utc=current_time,
+                title=args.title,
+            )
+    except ImportError as exc:
+        print(
+            f"error: missing visualization dependency ({exc}). Install with: "
+            f"pip install -e '.[viz]'",
+            file=sys.stderr,
+        )
+        return _EXIT_PLOT
+
+    print(f"wrote {written}")
+    return _EXIT_OK
+
+
+def _parse_iso_utc(raw: str) -> Optional[datetime]:
+    # Accept trailing 'Z' as a synonym for +00:00 (Python <3.11 quirk).
+    text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     """Entry point.
 
     Returns:
         Process exit code. ``0`` success; ``2`` TLE fetch failure;
-        ``3`` propagation failure; ``4`` watch aborted; ``130`` Ctrl-C.
+        ``3`` propagation failure; ``4`` watch aborted; ``5`` plot failure;
+        ``130`` Ctrl-C.
     """
     if argv is None:
         argv = sys.argv[1:]
@@ -452,6 +614,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         with TleFetcher(config) as fetcher:
             if args.subcommand == "passes":
                 return _dispatch_passes(args, fetcher, converter, config)
+            if args.subcommand == "plot":
+                return _dispatch_plot(args, fetcher, converter)
             # Default / 'now'
             return _dispatch_now(args, fetcher, converter)
     except TleFetchError as exc:

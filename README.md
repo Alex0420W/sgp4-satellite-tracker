@@ -2,6 +2,10 @@
 
 Real-time satellite tracking with SGP4 orbital propagation, TEME-to-WGS84 coordinate transformation, and IERS Earth Orientation Parameter corrections. Built in Python with a focus on the aerospace-software details that matter: time scale rigor, frame conversion correctness, and graceful degradation when upstream data sources fail.
 
+![ISS ground track over one orbit, rendered with cartopy](screenshots/iss_ground_track.png)
+
+*One full ISS orbit (~93 minutes) centred on now. Red ring marks the start of the window, gold star is the satellite's current position, triangle is the end. Generated from a freshly-fetched TLE — no fixtures.*
+
 ```text
 $ python -m sat_tracker
 ISS (ZARYA) [25544]
@@ -23,17 +27,20 @@ I built this as part of preparing to apply to NASA. Most "satellite tracker" tut
 - Caches TLEs locally with TTL invalidation and atomic writes
 - Falls back gracefully when CelesTrak or IERS are unreachable, with visible warnings
 - Provides a CLI with one-shot and continuous (watch) modes
+- Predicts upcoming passes over a ground station (AOS / max-elevation / LOS, azimuths, sunlit-vs-eclipsed visibility)
+- Renders 2D ground tracks to static images (cartopy) or interactive HTML maps (plotly), with multi-satellite support
 
 ## Quick start
 
 ```bash
 git clone https://github.com/Alex0420W/sgp4-satellite-tracker
 cd sgp4-satellite-tracker
-pip install -e ".[dev]"
+pip install -e ".[dev]"           # core + tests
+pip install -e ".[dev,viz]"       # also installs cartopy/matplotlib/plotly for `plot`
 python -m sat_tracker
 ```
 
-That's it. First run downloads a few MB of EOP data; subsequent runs are offline-friendly within the cache TTL.
+That's it. First run downloads a few MB of EOP data; subsequent runs are offline-friendly within the cache TTL. The `[viz]` extra is optional — `now` and `passes` work without it; only `plot` requires it.
 
 ## Usage
 
@@ -82,6 +89,34 @@ Notes:
 - **Sunlit flag** uses Skyfield's planetary ephemeris (`de421.bsp`, ~16 MB, downloaded on first use). On ephemeris failure the flag becomes `None` (visibility unknown) but pass *timing* is unaffected.
 - **Incomplete passes are skipped.** A pass that started before the window opens or hasn't finished by the time it closes is not reported — only passes with a complete rise + culminate + set inside the window appear in the output.
 
+## Visualization
+
+Render ground tracks to a static image or an interactive HTML map. Backend is selected automatically from the output suffix: `.png` / `.pdf` / `.svg` use cartopy + matplotlib, `.html` uses plotly.
+
+```bash
+# Single-satellite ground track over one full orbit, centred on now
+python -m sat_tracker plot --catnr 25544 --output screenshots/iss_ground_track.png
+
+# Multi-satellite plot — repeat --catnr; each track gets its own colour and legend entry
+python -m sat_tracker plot --catnr 25544 --catnr 20580 --output screenshots/multi_ground_track.png
+
+# Interactive HTML map (hover for time / lat / lon / altitude per sample)
+python -m sat_tracker plot --catnr 25544 --output iss.html
+
+# Custom window: 6 hours starting at a specific UTC instant
+python -m sat_tracker plot --catnr 25544 --hours 6 --start-utc 2026-04-28T12:00:00Z -o iss_6h.png
+```
+
+Multi-satellite example with the ISS (51.6° inclination, red) and Hubble (28.5°, blue) on one map — the inclination envelopes are immediately distinguishable:
+
+[![ISS + Hubble multi-track](screenshots/multi_ground_track.png)](screenshots/multi_ground_track.png)
+
+Notes on the renderers:
+
+- **Antimeridian splitting.** Tracks that cross ±180° are split into separate polylines so the renderer doesn't draw a horizontal line across the entire world map. Implemented once in `visualization/common.py` and shared between both backends.
+- **"Now" marker.** The gold star is placed at the sample whose timestamp is closest to the current instant, but only if that sample is within one time-step of "now" — outside that, the marker is suppressed rather than misleadingly pinned to the edge of the window.
+- **Defer-imports.** `cartopy`, `matplotlib`, and `plotly` are imported only inside the render functions. Importing `sat_tracker` on a machine without the `[viz]` extras will not fail.
+
 ## Architecture
 
 Four modules, each with a single responsibility:
@@ -128,7 +163,7 @@ These are the things that separate a working tracker from a *correct* one:
 python -m pytest -v
 ```
 
-28 tests across 4 modules. Tests are isolated from network: TLE fetcher tests use mocked HTTP responses, EOP fallback tests use injected loaders, SGP4 error-code translation uses monkeypatched return values. CI-safe and deterministic.
+77 tests across 7 modules. Tests are isolated from network: TLE fetcher tests use mocked HTTP responses, EOP fallback tests use injected loaders, SGP4 error-code translation uses monkeypatched return values, visualization tests use the bundled Skyfield timescale and a fixed-fixture TLE. CI-safe and deterministic.
 
 ## Configuration
 
@@ -152,6 +187,7 @@ The CLI uses distinct exit codes so calling scripts can react appropriately:
 - `2` - startup TLE fetch failed (bad catnr, no network and no cache)
 - `3` - startup propagation failed
 - `4` - watch mode aborted after consecutive failures exceeded threshold
+- `5` - plot rendering failed (e.g. missing `[viz]` extras, bad `--start-utc`)
 - `130` - SIGINT (Ctrl-C in watch mode)
 
 ## Tech stack
@@ -164,8 +200,7 @@ The CLI uses distinct exit codes so calling scripts can react appropriately:
 
 ## Future work
 
-- 2D ground track and 3D orbit visualization (cartopy / plotly)
-- Pass prediction for ground stations with elevation/azimuth output
+- 3D orbit view in inertial frame (next stage — adds the rotating Earth + orbit ribbon companion to the 2D ground track)
 - Polar motion (x_p, y_p) integration into TEME-to-ITRF conversion
 - Streamlit web dashboard with live tracking
 - JSON output mode for piping into other tools
