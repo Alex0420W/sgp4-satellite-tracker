@@ -1,0 +1,4 @@
+sgp4>=2.23
+skyfield>=1.46
+requests>=2.31
+pytest>=7.4
