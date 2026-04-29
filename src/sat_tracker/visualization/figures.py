@@ -64,8 +64,16 @@ _GRATICULE_COLOR = "#c8d4e8"
 _GRATICULE_WIDTH = 0.6
 _GRATICULE_OPACITY = 0.18
 _GRATICULE_SPACING_DEG = 30
-_SPHERE_LAT_STEPS = 73
-_SPHERE_LON_STEPS = 145
+# Sphere mesh density: 145 × 289 = ~42K cells, every 1.25° lat / 1.25°
+# lon. Matched to the ne_50m Natural Earth shapefile detail. Going
+# higher (e.g. 217×433 + ne_10m) would expose finer islands but adds
+# ~2 s to cold-start mask computation; 145×289 is the sweet spot.
+_SPHERE_LAT_STEPS = 145
+_SPHERE_LON_STEPS = 289
+# Natural Earth resolution used for both the land-fill mask and the
+# coastline overlay. "50m" = 1:50,000,000 scale; visibly crisper than
+# the previous "110m" without a noticeable performance hit.
+_NATURAL_EARTH_RESOLUTION = "50m"
 
 
 # -- Public builders ----------------------------------------------------------
@@ -558,7 +566,9 @@ def _land_mask(lat_steps: int, lon_steps: int):
 
     try:
         land_path = shpreader.natural_earth(
-            resolution="110m", category="physical", name="land"
+            resolution=_NATURAL_EARTH_RESOLUTION,
+            category="physical",
+            name="land",
         )
         land_geoms = list(shpreader.Reader(land_path).geometries())
         land_union = unary_union(land_geoms)
@@ -585,7 +595,9 @@ def _add_coastlines(fig) -> None:
     import cartopy.io.shapereader as shpreader
 
     fname = shpreader.natural_earth(
-        resolution="110m", category="physical", name="coastline"
+        resolution=_NATURAL_EARTH_RESOLUTION,
+        category="physical",
+        name="coastline",
     )
     reader = shpreader.Reader(fname)
     xs: list[float] = []
