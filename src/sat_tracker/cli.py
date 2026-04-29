@@ -439,6 +439,56 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="STR",
         help="Override the plot title.",
     )
+    plot_parser.add_argument(
+        "--3d",
+        dest="three_d",
+        action="store_true",
+        help=(
+            "Render an interactive 3D orbit view (Earth as a textured "
+            "sphere with the orbit polyline in ECEF). Output suffix still "
+            "selects format (.html for interactive, .png/.svg/.pdf for "
+            "static). Default is the 2D ground track."
+        ),
+    )
+    plot_parser.add_argument(
+        "--gs-lat",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help=(
+            "(3D only) Ground-station geodetic latitude. Adds a station "
+            "marker on Earth's surface and a line-of-sight line to the "
+            "satellite at 'now' when above the horizon."
+        ),
+    )
+    plot_parser.add_argument(
+        "--gs-lon",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="(3D only) Ground-station geodetic longitude. Required with --gs-lat.",
+    )
+    plot_parser.add_argument(
+        "--gs-alt-km",
+        type=float,
+        default=0.0,
+        metavar="KM",
+        help="(3D only) Ground-station altitude in km (default 0).",
+    )
+    plot_parser.add_argument(
+        "--gs-name",
+        default=None,
+        metavar="NAME",
+        help="(3D only) Optional station label printed in the legend.",
+    )
+    plot_parser.add_argument(
+        "--no-time-slider",
+        action="store_true",
+        help=(
+            "(3D HTML only) Suppress the time slider. Static exports never "
+            "include a slider."
+        ),
+    )
     return parser
 
 
@@ -506,10 +556,18 @@ def _dispatch_plot(
     try:
         from sat_tracker.visualization.common import (
             default_window_seconds,
+            precompute_orbit,
             precompute_track,
         )
     except ImportError as exc:  # pragma: no cover — defensive
         print(f"error: cannot import visualization module: {exc}", file=sys.stderr)
+        return _EXIT_PLOT
+
+    if (args.gs_lat is None) != (args.gs_lon is None):
+        print(
+            "error: --gs-lat and --gs-lon must be provided together",
+            file=sys.stderr,
+        )
         return _EXIT_PLOT
 
     catnrs: list[int] = args.catnr or [_DEFAULT_CATNR]
@@ -536,38 +594,63 @@ def _dispatch_plot(
     else:
         start = now - timedelta(seconds=duration_s / 2)
 
-    tracks = [
-        precompute_track(
-            tle, converter, start_utc=start, duration_seconds=duration_s
-        )
-        for tle in tles
-    ]
-
     output_path = Path(args.output)
     suffix = output_path.suffix.lower()
     current_time = None if args.no_now_marker else now
 
     try:
-        if suffix in {".html", ".htm"}:
-            from sat_tracker.visualization.interactive import (
-                render_interactive_ground_track,
-            )
-            written = render_interactive_ground_track(
-                tracks if len(tracks) > 1 else tracks[0],
+        if args.three_d:
+            orbits = [
+                precompute_orbit(
+                    tle, converter, start_utc=start, duration_seconds=duration_s
+                )
+                for tle in tles
+            ]
+            station = None
+            if args.gs_lat is not None:
+                from sat_tracker.passes import GroundStation
+                station = GroundStation(
+                    latitude_deg=args.gs_lat,
+                    longitude_deg=args.gs_lon,
+                    altitude_km=args.gs_alt_km,
+                    name=args.gs_name,
+                )
+            from sat_tracker.visualization.orbit_3d import render_orbit_3d
+            written = render_orbit_3d(
+                orbits if len(orbits) > 1 else orbits[0],
                 output_path,
                 current_time_utc=current_time,
                 title=args.title,
+                ground_station=station,
+                time_slider=not args.no_time_slider,
             )
         else:
-            from sat_tracker.visualization.ground_track import (
-                render_ground_track,
-            )
-            written = render_ground_track(
-                tracks if len(tracks) > 1 else tracks[0],
-                output_path,
-                current_time_utc=current_time,
-                title=args.title,
-            )
+            tracks = [
+                precompute_track(
+                    tle, converter, start_utc=start, duration_seconds=duration_s
+                )
+                for tle in tles
+            ]
+            if suffix in {".html", ".htm"}:
+                from sat_tracker.visualization.interactive import (
+                    render_interactive_ground_track,
+                )
+                written = render_interactive_ground_track(
+                    tracks if len(tracks) > 1 else tracks[0],
+                    output_path,
+                    current_time_utc=current_time,
+                    title=args.title,
+                )
+            else:
+                from sat_tracker.visualization.ground_track import (
+                    render_ground_track,
+                )
+                written = render_ground_track(
+                    tracks if len(tracks) > 1 else tracks[0],
+                    output_path,
+                    current_time_utc=current_time,
+                    title=args.title,
+                )
     except ImportError as exc:
         print(
             f"error: missing visualization dependency ({exc}). Install with: "

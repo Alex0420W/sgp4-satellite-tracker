@@ -48,6 +48,30 @@ _WGS84_F: float = 1.0 / 298.257223563
 
 
 @dataclass(frozen=True)
+class EcefPosition:
+    """ECEF (ITRF) Cartesian position of a satellite at a given UTC instant.
+
+    Distinct from :class:`GroundPosition` — this is the satellite's actual
+    3D position in the Earth-fixed frame (kilometres from Earth's centre),
+    not the sub-satellite point on the ellipsoid surface. Used by the 3D
+    orbit renderer; not reduced to geodetic lat/lon/alt.
+
+    Attributes:
+        time_utc: Instant this position represents (copied from the source
+            :class:`~sat_tracker.propagator.StateVector`).
+        x_km, y_km, z_km: ECEF Cartesian coordinates in kilometres.
+        eop_degraded: True when the underlying timescale is the bundled
+            (offline) one. Same semantics as :class:`GroundPosition`.
+    """
+
+    time_utc: datetime
+    x_km: float
+    y_km: float
+    z_km: float
+    eop_degraded: bool
+
+
+@dataclass(frozen=True)
 class GroundPosition:
     """Geodetic sub-satellite point on the WGS84 ellipsoid.
 
@@ -134,16 +158,10 @@ class CoordinateConverter:
         Returns:
             A :class:`GroundPosition` evaluated at the same UTC instant.
         """
-        t = self._timescale.from_datetime(state.time_utc)
-
-        r_teme = np.array(state.position_km, dtype=float)
-        v_teme = np.array(state.velocity_km_s, dtype=float)
-
-        # Polar motion (xp, yp) defaults to zero — see module docstring.
-        r_itrf, _v_itrf = TEME_to_ITRF(t.ut1, r_teme, v_teme)
+        ecef = self.teme_to_ecef(state)
 
         lat_deg, lon_deg, alt_km = _ecef_to_geodetic(
-            float(r_itrf[0]), float(r_itrf[1]), float(r_itrf[2])
+            ecef.x_km, ecef.y_km, ecef.z_km
         )
         # Normalise longitude into the canonical [-180, 180] range.
         lon_deg = ((lon_deg + 180.0) % 360.0) - 180.0
@@ -153,6 +171,32 @@ class CoordinateConverter:
             latitude_deg=lat_deg,
             longitude_deg=lon_deg,
             altitude_km=alt_km,
+            eop_degraded=self._eop_degraded,
+        )
+
+    def teme_to_ecef(self, state: StateVector) -> EcefPosition:
+        """Convert a TEME state vector to an ECEF (ITRF) Cartesian position.
+
+        The intermediate result of :meth:`teme_to_ground`, exposed for the 3D
+        renderer which needs the satellite's actual 3D position in the
+        Earth-fixed frame rather than its sub-satellite ellipsoid point.
+
+        Args:
+            state: Satellite state in the TEME frame at some UTC instant.
+
+        Returns:
+            An :class:`EcefPosition` at the same UTC instant.
+        """
+        t = self._timescale.from_datetime(state.time_utc)
+        r_teme = np.array(state.position_km, dtype=float)
+        v_teme = np.array(state.velocity_km_s, dtype=float)
+        # Polar motion (xp, yp) defaults to zero — see module docstring.
+        r_itrf, _v_itrf = TEME_to_ITRF(t.ut1, r_teme, v_teme)
+        return EcefPosition(
+            time_utc=state.time_utc,
+            x_km=float(r_itrf[0]),
+            y_km=float(r_itrf[1]),
+            z_km=float(r_itrf[2]),
             eop_degraded=self._eop_degraded,
         )
 

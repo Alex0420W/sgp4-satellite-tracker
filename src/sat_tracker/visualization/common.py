@@ -23,9 +23,24 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sat_tracker.coordinates import CoordinateConverter, GroundPosition
+from sat_tracker.coordinates import (
+    CoordinateConverter,
+    EcefPosition,
+    GroundPosition,
+)
 from sat_tracker.propagator import propagate
 from sat_tracker.tle_fetcher import Tle
+
+
+# Shared palette used by all renderers (cartopy 2D, plotly 2D, plotly 3D)
+# so the same satellite is the same colour across every visualisation.
+DEFAULT_TRACK_COLORS: tuple[str, ...] = (
+    "#d62728",  # red       — first / single-satellite default
+    "#1f77b4",  # blue
+    "#2ca02c",  # green
+    "#9467bd",  # purple
+    "#ff7f0e",  # orange
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +58,39 @@ _TARGET_SAMPLES_PER_ORBIT: int = 180
 # multi-minute steps; defensive only — real usage rarely binds.
 _MIN_STEP_SECONDS: float = 5.0
 _MAX_STEP_SECONDS: float = 900.0  # 15 minutes
+
+
+@dataclass(frozen=True)
+class Orbit3D:
+    """Computed 3D Cartesian orbit positions for one satellite.
+
+    Companion to :class:`Track`: same time-grid semantics and same source
+    propagation, but the per-sample data is the satellite's actual 3D
+    position in an Earth-fixed (ECEF) or inertial (TEME) Cartesian frame
+    rather than the sub-satellite point on the ellipsoid.
+
+    Attributes:
+        catalog_number: NORAD catalog number from the source TLE.
+        name: Satellite name from the source TLE (may be ``None``).
+        samples: Tuple of :class:`EcefPosition` objects in chronological
+            order. Tuple-not-list for the same hashability/immutability
+            discipline as :class:`Track`.
+        tle_epoch_utc: Epoch parsed from the TLE's line 1.
+        frame: ``"ecef"`` (default — Earth-fixed, ITRF) or ``"teme"``
+            (inertial, True Equator Mean Equinox). The 3D renderer reads
+            this to decide whether to also rotate the Earth sphere or
+            leave it static.
+    """
+
+    catalog_number: int
+    name: Optional[str]
+    samples: tuple[EcefPosition, ...]
+    tle_epoch_utc: datetime
+    frame: str = "ecef"
+
+    @property
+    def eop_degraded(self) -> bool:
+        return any(s.eop_degraded for s in self.samples)
 
 
 @dataclass(frozen=True)
@@ -177,6 +225,102 @@ def precompute_track(
         name=tle.name,
         samples=tuple(samples),
         tle_epoch_utc=_parse_tle_epoch(tle),
+    )
+
+
+def precompute_orbit(
+    tle: Tle,
+    converter: CoordinateConverter,
+    *,
+    start_utc: datetime,
+    duration_seconds: float,
+    step_seconds: Optional[float] = None,
+    frame: str = "ecef",
+) -> Orbit3D:
+    """Propagate and convert at fixed intervals for the 3D orbit renderer.
+
+    Mirrors :func:`precompute_track` but emits 3D Cartesian positions
+    (kilometres from Earth's centre) rather than geodetic ground points.
+    Reuses the same propagator + converter so a caller building both 2D and
+    3D plots from the same window pays for SGP4 evaluation twice but pays
+    nothing for stage setup (timescale, EOP).
+
+    Args:
+        tle: Validated TLE.
+        converter: Active :class:`CoordinateConverter`.
+        start_utc: Window start. Must be timezone-aware.
+        duration_seconds: Window length in seconds. Must be positive.
+        step_seconds: Override for the time step. ``None`` → derive from
+            mean motion via :func:`default_time_step_seconds`.
+        frame: ``"ecef"`` (default, Earth-fixed) or ``"teme"`` (inertial).
+            ``"teme"`` skips the TEME→ITRF rotation and stores the raw
+            inertial position; useful for orbital-mechanics demos but
+            visually unintuitive with a fixed Earth.
+
+    Returns:
+        An :class:`Orbit3D` with samples at uniform intervals across the
+        window.
+
+    Raises:
+        ValueError: If ``start_utc`` is naive, ``duration_seconds`` /
+            ``step_seconds`` are non-positive, or ``frame`` is not one of
+            ``"ecef"`` / ``"teme"``.
+    """
+    if frame not in ("ecef", "teme"):
+        raise ValueError(
+            f"frame must be 'ecef' or 'teme', got {frame!r}"
+        )
+    if start_utc.tzinfo is None:
+        raise ValueError(
+            "start_utc must be timezone-aware. Naive datetimes are rejected "
+            "to avoid local-time-as-UTC silent errors."
+        )
+    if duration_seconds <= 0:
+        raise ValueError(
+            f"duration_seconds must be positive, got {duration_seconds}"
+        )
+
+    start_utc = start_utc.astimezone(timezone.utc)
+    if step_seconds is None:
+        step_seconds = default_time_step_seconds(tle)
+    if step_seconds <= 0:
+        raise ValueError(f"step_seconds must be positive, got {step_seconds}")
+
+    n_steps = int(duration_seconds // step_seconds) + 1
+    samples: list[EcefPosition] = []
+    for i in range(n_steps):
+        when = start_utc + timedelta(seconds=i * step_seconds)
+        state = propagate(tle, when)
+        if frame == "ecef":
+            samples.append(converter.teme_to_ecef(state))
+        else:
+            # Inertial frame: store the raw TEME position straight from the
+            # propagator. eop_degraded is irrelevant here (no rotation
+            # applied) but we mirror the converter's flag for consistency
+            # with the dataclass shape.
+            samples.append(
+                EcefPosition(
+                    time_utc=state.time_utc,
+                    x_km=float(state.position_km[0]),
+                    y_km=float(state.position_km[1]),
+                    z_km=float(state.position_km[2]),
+                    eop_degraded=converter.eop_degraded,
+                )
+            )
+
+    logger.debug(
+        "Precomputed %d 3D samples (frame=%s) for catnr=%d over %.0fs",
+        n_steps,
+        frame,
+        tle.catalog_number,
+        duration_seconds,
+    )
+    return Orbit3D(
+        catalog_number=tle.catalog_number,
+        name=tle.name,
+        samples=tuple(samples),
+        tle_epoch_utc=_parse_tle_epoch(tle),
+        frame=frame,
     )
 
 

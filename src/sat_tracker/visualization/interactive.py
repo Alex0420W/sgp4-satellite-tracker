@@ -15,21 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
-from sat_tracker.visualization.common import Track, split_at_antimeridian
+from sat_tracker.visualization.common import (
+    DEFAULT_TRACK_COLORS,
+    Track,
+    split_at_antimeridian,
+)
 
 logger = logging.getLogger(__name__)
 
 _HOVER_TIME_FORMAT = "%Y-%m-%d %H:%M:%S UTC"
-
-# Same palette as the cartopy renderer so single-vs-multi screenshots look
-# consistent regardless of which backend produced them.
-_DEFAULT_COLORS: tuple[str, ...] = (
-    "#d62728",
-    "#1f77b4",
-    "#2ca02c",
-    "#9467bd",
-    "#ff7f0e",
-)
 
 
 def render_interactive_ground_track(
@@ -71,7 +65,7 @@ def render_interactive_ground_track(
             static export).
     """
     track_list = _normalize_tracks(tracks)
-    color_list = list(colors) if colors else list(_DEFAULT_COLORS)
+    color_list = list(colors) if colors else list(DEFAULT_TRACK_COLORS)
 
     import plotly.graph_objects as go
 

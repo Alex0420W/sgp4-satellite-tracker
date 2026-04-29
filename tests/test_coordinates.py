@@ -19,6 +19,7 @@ from sat_tracker import coordinates as coords_module
 from sat_tracker.config import Config
 from sat_tracker.coordinates import (
     CoordinateConverter,
+    EcefPosition,
     GroundPosition,
     _ecef_to_geodetic,
 )
@@ -125,6 +126,30 @@ def test_eop_degraded_flag_propagates_to_position(
     state = propagate(iss, _EPOCH_UTC)
     ground = offline_converter.teme_to_ground(state)
     assert ground.eop_degraded is True
+
+
+def test_teme_to_ecef_returns_consistent_radius(
+    iss: Tle, offline_converter: CoordinateConverter
+) -> None:
+    """ECEF radius must match (Earth radius + ground altitude) within ~1 km.
+
+    Sanity check: the 3D position the renderer consumes should agree with
+    the geodetic altitude already exercised in
+    ``test_iss_ground_position_is_plausible``. The ~1 km tolerance covers
+    the ellipsoid vs. spherical-radius approximation at high latitudes.
+    """
+    state = propagate(iss, _EPOCH_UTC)
+    ecef = offline_converter.teme_to_ecef(state)
+    ground = offline_converter.teme_to_ground(state)
+
+    assert isinstance(ecef, EcefPosition)
+    assert ecef.time_utc == state.time_utc
+    assert ecef.eop_degraded is True
+
+    radius_km = math.sqrt(ecef.x_km ** 2 + ecef.y_km ** 2 + ecef.z_km ** 2)
+    earth_mean_radius_km = 6371.0
+    expected = earth_mean_radius_km + ground.altitude_km
+    assert abs(radius_km - expected) < 25.0  # ellipsoid vs sphere slack
 
 
 def test_longitude_normalised_across_24h(

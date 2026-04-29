@@ -17,9 +17,12 @@ from sat_tracker.config import Config
 from sat_tracker.coordinates import CoordinateConverter, GroundPosition
 from sat_tracker.tle_fetcher import Tle
 from sat_tracker.visualization.common import (
+    DEFAULT_TRACK_COLORS,
+    Orbit3D,
     Track,
     default_time_step_seconds,
     default_window_seconds,
+    precompute_orbit,
     precompute_track,
     split_at_antimeridian,
 )
@@ -281,3 +284,119 @@ def test_precompute_track_tle_epoch_parsed(
     expected = datetime(2024, 1, 1, 13, 9, 0, tzinfo=timezone.utc)
     delta_s = abs((track.tle_epoch_utc - expected).total_seconds())
     assert delta_s < 60.0
+
+
+# -- precompute_orbit (3D) ---------------------------------------------------
+
+
+def test_precompute_orbit_iss_ecef_radius_in_leo_band(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    """All ISS samples should sit ~6770-6810 km from Earth's centre in LEO."""
+    orbit = precompute_orbit(
+        iss,
+        converter,
+        start_utc=_NEAR_EPOCH_UTC,
+        duration_seconds=default_window_seconds(iss),
+    )
+    assert isinstance(orbit, Orbit3D)
+    assert orbit.frame == "ecef"
+    assert orbit.catalog_number == 25544
+    assert orbit.name == "ISS (ZARYA)"
+    assert 170 < len(orbit.samples) < 200
+
+    for s in orbit.samples:
+        radius_km = (s.x_km ** 2 + s.y_km ** 2 + s.z_km ** 2) ** 0.5
+        # ISS: ~400 km altitude → radius ~6770 km. Allow 60 km slack for
+        # eccentricity + ellipsoid effects.
+        assert 6720 <= radius_km <= 6830, f"unexpected radius {radius_km:.1f}"
+
+
+def test_precompute_orbit_eop_degraded_propagates(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    orbit = precompute_orbit(
+        iss, converter, start_utc=_NEAR_EPOCH_UTC, duration_seconds=300.0
+    )
+    assert orbit.eop_degraded is True
+    assert all(s.eop_degraded for s in orbit.samples)
+
+
+def test_precompute_orbit_teme_frame_differs_from_ecef(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    """TEME and ECEF should give different x,y at the same instant — they
+    differ by the GMST rotation about z. z stays the same (no polar motion)."""
+    ecef = precompute_orbit(
+        iss, converter, start_utc=_NEAR_EPOCH_UTC, duration_seconds=60.0
+    )
+    teme = precompute_orbit(
+        iss,
+        converter,
+        start_utc=_NEAR_EPOCH_UTC,
+        duration_seconds=60.0,
+        frame="teme",
+    )
+    assert ecef.frame == "ecef"
+    assert teme.frame == "teme"
+    e0 = ecef.samples[0]
+    t0 = teme.samples[0]
+    # x and y must differ (rotation by GMST != identity). z is essentially
+    # unchanged (polar motion not modelled in this MVP).
+    assert abs(e0.x_km - t0.x_km) > 1.0
+    assert abs(e0.y_km - t0.y_km) > 1.0
+    assert abs(e0.z_km - t0.z_km) < 0.1
+
+
+def test_precompute_orbit_invalid_frame_raises(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    with pytest.raises(ValueError, match="frame"):
+        precompute_orbit(
+            iss,
+            converter,
+            start_utc=_NEAR_EPOCH_UTC,
+            duration_seconds=60.0,
+            frame="bogus",
+        )
+
+
+def test_precompute_orbit_naive_datetime_raises(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    naive = datetime(2024, 1, 1, 14, 0, 0)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        precompute_orbit(
+            iss, converter, start_utc=naive, duration_seconds=60.0
+        )
+
+
+def test_precompute_orbit_zero_duration_raises(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    with pytest.raises(ValueError, match="duration_seconds"):
+        precompute_orbit(
+            iss, converter, start_utc=_NEAR_EPOCH_UTC, duration_seconds=0
+        )
+
+
+def test_precompute_orbit_custom_step_count(
+    iss: Tle, converter: CoordinateConverter
+) -> None:
+    orbit = precompute_orbit(
+        iss,
+        converter,
+        start_utc=_NEAR_EPOCH_UTC,
+        duration_seconds=600.0,
+        step_seconds=60.0,
+    )
+    assert len(orbit.samples) == 11
+
+
+# -- shared palette ----------------------------------------------------------
+
+
+def test_default_track_colors_has_at_least_two_colors() -> None:
+    """The palette must support multi-satellite plots without immediate wrap."""
+    assert len(DEFAULT_TRACK_COLORS) >= 2
+    assert all(c.startswith("#") and len(c) == 7 for c in DEFAULT_TRACK_COLORS)

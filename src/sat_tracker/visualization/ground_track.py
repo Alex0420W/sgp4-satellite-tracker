@@ -19,21 +19,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Union
 
-from sat_tracker.visualization.common import Track, split_at_antimeridian
+from sat_tracker.visualization.common import (
+    DEFAULT_TRACK_COLORS,
+    Track,
+    split_at_antimeridian,
+)
 
 logger = logging.getLogger(__name__)
 
 _SUBTITLE_TIME_FORMAT = "%Y-%m-%d %H:%M UTC"
-
-# Default per-track colour cycle. First two chosen for high contrast against
-# the ocean-blue basemap; cycle wraps for >5 satellites.
-_DEFAULT_COLORS: tuple[str, ...] = (
-    "#d62728",  # red
-    "#1f77b4",  # blue (darker than ocean)
-    "#2ca02c",  # green
-    "#9467bd",  # purple
-    "#ff7f0e",  # orange
-)
 
 
 def render_ground_track(
@@ -81,7 +75,7 @@ def render_ground_track(
         ImportError: If cartopy or matplotlib are not installed.
     """
     track_list = _normalize_tracks(tracks)
-    color_list = list(colors) if colors else list(_DEFAULT_COLORS)
+    color_list = list(colors) if colors else list(DEFAULT_TRACK_COLORS)
 
     # Defer-imports: cartopy + matplotlib are only required at render time.
     import cartopy.crs as ccrs

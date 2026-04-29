@@ -28,7 +28,7 @@ I built this as part of preparing to apply to NASA. Most "satellite tracker" tut
 - Falls back gracefully when CelesTrak or IERS are unreachable, with visible warnings
 - Provides a CLI with one-shot and continuous (watch) modes
 - Predicts upcoming passes over a ground station (AOS / max-elevation / LOS, azimuths, sunlit-vs-eclipsed visibility)
-- Renders 2D ground tracks to static images (cartopy) or interactive HTML maps (plotly), with multi-satellite support
+- Renders 2D ground tracks (cartopy / plotly) and 3D Earth-fixed orbit views (plotly) to interactive HTML or static images, with multi-satellite support and an optional ground-station marker + line-of-sight in the 3D view
 
 ## Quick start
 
@@ -91,7 +91,9 @@ Notes:
 
 ## Visualization
 
-Render ground tracks to a static image or an interactive HTML map. Backend is selected automatically from the output suffix: `.png` / `.pdf` / `.svg` use cartopy + matplotlib, `.html` uses plotly.
+Two complementary views, both driven by the same `plot` subcommand. The 2D ground track shows the sub-satellite point traced across a world map; the 3D orbit shows the satellite's actual 3D position in the Earth-fixed frame. Backend is selected by output suffix — `.png` / `.pdf` / `.svg` go to a static renderer (cartopy for 2D, plotly+kaleido for 3D), `.html` produces an interactive plot. The `--3d` flag switches between 2D ground track (default) and 3D orbit view.
+
+### 2D ground track
 
 ```bash
 # Single-satellite ground track over one full orbit, centred on now
@@ -111,10 +113,32 @@ Multi-satellite example with the ISS (51.6° inclination, red) and Hubble (28.5�
 
 [![ISS + Hubble multi-track](screenshots/multi_ground_track.png)](screenshots/multi_ground_track.png)
 
+### 3D orbit view
+
+```bash
+# Static 3D orbit hero, single satellite
+python -m sat_tracker plot --3d --catnr 25544 --output screenshots/iss_orbit_3d.png
+
+# Interactive HTML with a time slider scrubbing the satellite along the orbit
+python -m sat_tracker plot --3d --catnr 25544 --output iss_orbit.html
+
+# Multi-satellite, with a ground-station marker + line-of-sight at "now"
+python -m sat_tracker plot --3d --catnr 25544 --catnr 20580 \
+    --gs-lat 40.59 --gs-lon -105.08 --gs-alt-km 1.5 --gs-name "Fort Collins" \
+    --output multi_orbit.html
+```
+
+[![ISS 3D orbit](screenshots/iss_orbit_3d.png)](screenshots/iss_orbit_3d.png)
+
+The 3D view uses an Earth-fixed (ECEF / ITRF) frame, not an inertial one. The same physical effect that makes the 2D ground track shift westward by ~22.5° between successive passes — Earth rotating beneath a (nearly) inertial orbit — is visible in 3D as a "spiral" trace when rendered over a multi-orbit window. The two views are the same phenomenon at different visual abstractions; comparing them side-by-side is the fastest way to build intuition for why ground tracks tile the way they do.
+
 Notes on the renderers:
 
-- **Antimeridian splitting.** Tracks that cross ±180° are split into separate polylines so the renderer doesn't draw a horizontal line across the entire world map. Implemented once in `visualization/common.py` and shared between both backends.
-- **"Now" marker.** The gold star is placed at the sample whose timestamp is closest to the current instant, but only if that sample is within one time-step of "now" — outside that, the marker is suppressed rather than misleadingly pinned to the edge of the window.
+- **Shared time grid.** Both views call `precompute_track` / `precompute_orbit` from `visualization/common.py`, which compute on the same uniform grid driven by mean motion. A multi-sat plot in either dimensionality uses the same colour palette (`DEFAULT_TRACK_COLORS` — ISS is red in both 2D and 3D).
+- **Antimeridian splitting (2D only).** Tracks that cross ±180° are split into separate polylines so the renderer doesn't draw a horizontal line across the entire world map.
+- **"Now" marker.** The gold star (2D) / gold diamond (3D) is placed at the sample closest to the current instant, but only when that sample is within one time-step of "now" — outside the window, the marker is suppressed rather than misleadingly pinned.
+- **3D coastlines.** The 3D Earth sphere overlays the same Natural Earth coastlines that cartopy uses for the 2D basemap (charcoal, low opacity), so the 3D globe is legible against the ocean-blue base without needing a photo texture.
+- **Line-of-sight geometry.** When a ground station is provided in 3D, the line from station to satellite is drawn only when the satellite is geometrically above the station's local horizon — below-horizon satellites have no line of sight, so drawing one would be physically wrong.
 - **Defer-imports.** `cartopy`, `matplotlib`, and `plotly` are imported only inside the render functions. Importing `sat_tracker` on a machine without the `[viz]` extras will not fail.
 
 ## Architecture
@@ -163,7 +187,7 @@ These are the things that separate a working tracker from a *correct* one:
 python -m pytest -v
 ```
 
-77 tests across 7 modules. Tests are isolated from network: TLE fetcher tests use mocked HTTP responses, EOP fallback tests use injected loaders, SGP4 error-code translation uses monkeypatched return values, visualization tests use the bundled Skyfield timescale and a fixed-fixture TLE. CI-safe and deterministic.
+95 tests across 8 modules. Tests are isolated from network: TLE fetcher tests use mocked HTTP responses, EOP fallback tests use injected loaders, SGP4 error-code translation uses monkeypatched return values, visualization tests use the bundled Skyfield timescale and a fixed-fixture TLE. CI-safe and deterministic.
 
 ## Configuration
 
@@ -200,8 +224,8 @@ The CLI uses distinct exit codes so calling scripts can react appropriately:
 
 ## Future work
 
-- 3D orbit view in inertial frame (next stage — adds the rotating Earth + orbit ribbon companion to the 2D ground track)
 - Polar motion (x_p, y_p) integration into TEME-to-ITRF conversion
+- Inertial-frame option exposed on the CLI (the renderer code path exists; only a flag is missing)
 - Streamlit web dashboard with live tracking
 - JSON output mode for piping into other tools
 
