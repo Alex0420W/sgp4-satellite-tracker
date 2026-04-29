@@ -62,7 +62,23 @@ logger = logging.getLogger(__name__)
 
 @st.cache_resource(show_spinner=False)
 def _config() -> Config:
+    """Load runtime config, force a writable cache dir on cloud hosts.
+
+    The default cache_dir is ``./data`` (relative to cwd). Streamlit
+    Cloud's working directory is sometimes read-only at runtime, which
+    breaks ``TleFetcher``'s atomic-write into the cache. We re-home the
+    cache to ``$TMPDIR/sat_tracker_cache`` on every run — this directory
+    is reliably writable on every Linux/macOS host and survives across
+    reruns within the same container.
+    """
+    import tempfile
+    from dataclasses import replace
+    from pathlib import Path
+
     cfg = load_config()
+    cache_dir = Path(tempfile.gettempdir()) / "sat_tracker_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cfg = replace(cfg, cache_dir=cache_dir)
     configure_logging(cfg)
     return cfg
 
@@ -516,20 +532,26 @@ def _render_empty_state(view_label: str) -> None:
 def _resolve_satellites(
     catnrs: list[int],
     bucket: int,
-) -> tuple[list[Orbit3D], list[Track], list[Orbit3D], list[Track], list[int]]:
-    """Build the four parallel lists of figures' inputs.
+) -> tuple[
+    list[Orbit3D],
+    list[Track],
+    list[Orbit3D],
+    list[Track],
+    list[tuple[int, str]],
+]:
+    """Build the four parallel lists of figure inputs.
 
     Returns:
         Five-tuple (context_orbits, context_tracks, anim_orbits,
-        anim_tracks, failed_catnrs). The ``failed_catnrs`` list holds
-        any catnrs whose TLE fetch failed; the dashboard surfaces these
-        as a warning and skips them in the figures.
+        anim_tracks, failed). The ``failed`` list holds
+        ``(catnr, message)`` pairs so the UI can display the actual
+        upstream error rather than just "fetch failed".
     """
     context_orbits: list[Orbit3D] = []
     context_tracks: list[Track] = []
     anim_orbits: list[Orbit3D] = []
     anim_tracks: list[Track] = []
-    failed: list[int] = []
+    failed: list[tuple[int, str]] = []
     for catnr in catnrs:
         try:
             context_orbits.append(_cached_orbit_context(catnr, bucket // 60))
@@ -538,7 +560,10 @@ def _resolve_satellites(
             anim_tracks.append(_cached_animation_track(catnr, bucket))
         except TleFetchError as exc:
             logger.warning("TLE fetch failed for catnr=%d: %s", catnr, exc)
-            failed.append(catnr)
+            failed.append((catnr, str(exc)))
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.exception("Unexpected error for catnr=%d", catnr)
+            failed.append((catnr, f"{type(exc).__name__}: {exc}"))
     return context_orbits, context_tracks, anim_orbits, anim_tracks, failed
 
 
@@ -575,10 +600,22 @@ def _render() -> None:
                 failed,
             ) = _resolve_satellites(catnrs, bucket)
         if failed:
-            failed_list = ", ".join(str(c) for c in failed)
-            st.toast(
-                f"TLE fetch failed for catnr {failed_list}. "
-                f"Skipped — try a different ID or check connectivity.",
+            # Show prominent inline error with the actual upstream
+            # message. Toasts auto-dismiss after a few seconds and are
+            # easy to miss; this stays on screen until the next rerun
+            # or until the user removes the offending satellite. The
+            # message includes the underlying CelesTrak / network
+            # error so we can diagnose remotely from a screenshot.
+            failed_lines = "\n".join(
+                f"- **catnr {c}** — {msg}" for c, msg in failed
+            )
+            st.error(
+                "TLE fetch failed for the following satellites. "
+                "They are skipped in the figures:\n\n"
+                f"{failed_lines}\n\n"
+                "Most likely causes: CelesTrak rate-limit, network "
+                "outage on the host, or a catnr CelesTrak doesn't "
+                "carry (e.g. an L2 / heliocentric mission).",
                 icon="⚠️",
             )
     else:
