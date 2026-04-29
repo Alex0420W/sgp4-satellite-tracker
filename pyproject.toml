@@ -47,6 +47,13 @@ sat-tracker = "sat_tracker.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# The dashboard's curated-satellite list is a JSON asset shipped inside
+# the package. Without this declaration, `pip install .` would copy the
+# Python files but skip the JSON, breaking
+# components.load_curated_satellites() at runtime on Streamlit Cloud.
+"sat_tracker.dashboard" = ["static/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

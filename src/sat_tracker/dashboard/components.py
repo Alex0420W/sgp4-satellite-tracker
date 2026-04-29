@@ -14,6 +14,7 @@ which queries CelesTrak's actual ``GROUP=`` endpoint.
 from __future__ import annotations
 
 import functools
+import importlib.resources
 import json
 import logging
 from dataclasses import dataclass
@@ -130,7 +131,8 @@ def set_active_station(station: GroundStation) -> None:
 
 logger = logging.getLogger(__name__)
 
-_CURATED_PATH = Path(__file__).parent / "static" / "curated_satellites.json"
+_CURATED_RESOURCE_PACKAGE = "sat_tracker.dashboard.static"
+_CURATED_RESOURCE_NAME = "curated_satellites.json"
 
 # Maximum tracked satellites at once. Higher than this degrades plotly's
 # WebGL renderer on mid-spec hardware (50 sats × 60 frames + sphere +
@@ -210,16 +212,34 @@ CELESTRAK_GROUPS: tuple[CelestrakGroupOption, ...] = (
 
 @functools.lru_cache(maxsize=1)
 def load_curated_satellites() -> list[dict]:
-    """Load the curated 200-entry satellite list from the JSON asset.
+    """Load the curated satellite list from the JSON asset.
+
+    Read via :mod:`importlib.resources` so the lookup works whether
+    the package is run from a source checkout (``src/`` layout) or
+    installed into ``site-packages`` (Streamlit Cloud's flow).
+
+    Falls back to the in-repo ``static/`` path if the resource API
+    can't find the file — defensive against a malformed install
+    (e.g. ``pip install .`` without the package-data declaration).
 
     Returns:
         A flat list of ``{"name": str, "catnr": int, "blurb": str,
-        "category": str}`` dicts, one per satellite. Categories are
-        flattened into a per-entry field so search results can show
-        the category alongside the name.
+        "category": str}`` dicts, one per satellite.
     """
-    with _CURATED_PATH.open() as f:
-        data = json.load(f)
+    try:
+        resource = (
+            importlib.resources.files(_CURATED_RESOURCE_PACKAGE)
+            / _CURATED_RESOURCE_NAME
+        )
+        text = resource.read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError):
+        # Source-checkout fallback: the static/ directory sits next to
+        # this module on disk. Used when running from an editable
+        # install where importlib.resources sometimes returns a Path
+        # the read fails to resolve.
+        fallback = Path(__file__).parent / "static" / _CURATED_RESOURCE_NAME
+        text = fallback.read_text(encoding="utf-8")
+    data = json.loads(text)
     flat: list[dict] = []
     for category, entries in data["categories"].items():
         for entry in entries:
