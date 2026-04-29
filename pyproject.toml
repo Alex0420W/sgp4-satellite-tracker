@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sat-tracker"
-version = "0.1.0"
+version = "0.2.0"
 description = "Satellite tracking and orbit propagation using TLE data and SGP4."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,6 +43,12 @@ dashboard = [
 
 [project.scripts]
 sat-tracker = "sat_tracker.cli:main"
+
+[tool.setuptools]
+# Belt-and-braces with the explicit package-data block below — older
+# setuptools versions and some pip wheel caches honour one path or the
+# other but not both, so we declare both.
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
