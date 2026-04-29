@@ -2,162 +2,672 @@
   "_comment": "Curated satellite list for the Streamlit dashboard's autocomplete. Catalog numbers are NORAD IDs. Categories are pedagogical groupings, not strict CelesTrak group membership. List is hardcoded so first-load doesn't hit the network for satellite names.",
   "categories": {
     "Stations & visitors": [
-      {"name": "ISS (ZARYA)", "catnr": 25544, "blurb": "International Space Station — humans live here"},
-      {"name": "TIANGONG", "catnr": 48274, "blurb": "Chinese space station"},
-      {"name": "CSS (TIANHE)", "catnr": 48274, "blurb": "Tiangong core module (alias)"},
-      {"name": "PROGRESS-MS-26", "catnr": 59586, "blurb": "ISS resupply"},
-      {"name": "CYGNUS NG-21", "catnr": 60598, "blurb": "ISS commercial cargo"},
-      {"name": "DRAGON CRS-31", "catnr": 61759, "blurb": "ISS commercial cargo"},
-      {"name": "CREW DRAGON 9", "catnr": 60752, "blurb": "ISS crew rotation"},
-      {"name": "SOYUZ MS-26", "catnr": 60998, "blurb": "ISS Russian crew vehicle"}
+      {
+        "name": "ISS (ZARYA)",
+        "catnr": 25544,
+        "blurb": "International Space Station \u2014 humans live here"
+      },
+      {
+        "name": "TIANGONG",
+        "catnr": 48274,
+        "blurb": "Chinese space station"
+      },
+      {
+        "name": "CSS (TIANHE)",
+        "catnr": 48274,
+        "blurb": "Tiangong core module (alias)"
+      },
+      {
+        "name": "PROGRESS-MS-26",
+        "catnr": 59586,
+        "blurb": "ISS resupply"
+      },
+      {
+        "name": "CYGNUS NG-21",
+        "catnr": 60598,
+        "blurb": "ISS commercial cargo"
+      },
+      {
+        "name": "DRAGON CRS-31",
+        "catnr": 61759,
+        "blurb": "ISS commercial cargo"
+      },
+      {
+        "name": "SOYUZ MS-26",
+        "catnr": 60998,
+        "blurb": "ISS Russian crew vehicle"
+      }
     ],
     "Telescopes & science": [
-      {"name": "HST (HUBBLE)", "catnr": 20580, "blurb": "Hubble Space Telescope"},
-      {"name": "CHANDRA", "catnr": 25867, "blurb": "X-ray observatory in elliptical orbit"},
-      {"name": "TESS", "catnr": 43435, "blurb": "Transiting Exoplanet Survey Satellite"},
-      {"name": "SWIFT", "catnr": 28485, "blurb": "Gamma-ray burst observatory"},
-      {"name": "FERMI (GLAST)", "catnr": 33053, "blurb": "Gamma-ray space telescope"},
-      {"name": "NUSTAR", "catnr": 38358, "blurb": "Hard X-ray telescope"},
-      {"name": "IXPE", "catnr": 49954, "blurb": "X-ray polarimetry mission"}
+      {
+        "name": "HST (HUBBLE)",
+        "catnr": 20580,
+        "blurb": "Hubble Space Telescope"
+      },
+      {
+        "name": "CHANDRA",
+        "catnr": 25867,
+        "blurb": "X-ray observatory in elliptical orbit"
+      },
+      {
+        "name": "SWIFT",
+        "catnr": 28485,
+        "blurb": "Gamma-ray burst observatory"
+      },
+      {
+        "name": "FERMI (GLAST)",
+        "catnr": 33053,
+        "blurb": "Gamma-ray space telescope"
+      },
+      {
+        "name": "NUSTAR",
+        "catnr": 38358,
+        "blurb": "Hard X-ray telescope"
+      },
+      {
+        "name": "IXPE",
+        "catnr": 49954,
+        "blurb": "X-ray polarimetry mission"
+      }
     ],
     "Navigation": [
-      {"name": "GPS BIIR-2  (PRN 13)", "catnr": 24876, "blurb": "GPS"},
-      {"name": "GPS BIIR-3  (PRN 11)", "catnr": 25933, "blurb": "GPS"},
-      {"name": "GPS BIIR-4  (PRN 20)", "catnr": 26360, "blurb": "GPS"},
-      {"name": "GPS BIIR-5  (PRN 28)", "catnr": 26407, "blurb": "GPS"},
-      {"name": "GPS BIIR-6  (PRN 14)", "catnr": 26605, "blurb": "GPS"},
-      {"name": "GPS BIIR-7  (PRN 18)", "catnr": 26690, "blurb": "GPS"},
-      {"name": "GPS BIIR-8  (PRN 16)", "catnr": 27663, "blurb": "GPS"},
-      {"name": "GPS BIIR-9  (PRN 21)", "catnr": 27704, "blurb": "GPS"},
-      {"name": "GPS BIIR-10 (PRN 22)", "catnr": 28129, "blurb": "GPS"},
-      {"name": "GPS BIIR-11 (PRN 19)", "catnr": 28190, "blurb": "GPS"},
-      {"name": "GPS BIIR-12 (PRN 23)", "catnr": 28361, "blurb": "GPS"},
-      {"name": "GPS BIIR-13 (PRN 02)", "catnr": 28474, "blurb": "GPS"},
-      {"name": "GPS BIIRM-1 (PRN 17)", "catnr": 28874, "blurb": "GPS"},
-      {"name": "GPS BIIRM-2 (PRN 31)", "catnr": 29486, "blurb": "GPS"},
-      {"name": "GPS BIIRM-3 (PRN 12)", "catnr": 29601, "blurb": "GPS"},
-      {"name": "GPS BIIRM-4 (PRN 15)", "catnr": 32260, "blurb": "GPS"},
-      {"name": "GPS BIIRM-5 (PRN 29)", "catnr": 32384, "blurb": "GPS"},
-      {"name": "GPS BIIRM-6 (PRN 07)", "catnr": 32711, "blurb": "GPS"},
-      {"name": "GPS BIIF-1  (PRN 25)", "catnr": 36585, "blurb": "GPS"},
-      {"name": "GPS BIIF-2  (PRN 01)", "catnr": 37753, "blurb": "GPS"},
-      {"name": "GPS BIIF-3  (PRN 24)", "catnr": 38833, "blurb": "GPS"},
-      {"name": "GPS BIIF-4  (PRN 27)", "catnr": 39166, "blurb": "GPS"},
-      {"name": "GPS BIIF-5  (PRN 30)", "catnr": 39533, "blurb": "GPS"},
-      {"name": "GPS BIIF-6  (PRN 06)", "catnr": 39741, "blurb": "GPS"},
-      {"name": "GPS BIIF-7  (PRN 09)", "catnr": 40105, "blurb": "GPS"},
-      {"name": "GPS BIIF-8  (PRN 03)", "catnr": 40294, "blurb": "GPS"},
-      {"name": "GPS BIIF-9  (PRN 26)", "catnr": 40534, "blurb": "GPS"},
-      {"name": "GPS BIIF-10 (PRN 08)", "catnr": 40730, "blurb": "GPS"},
-      {"name": "GPS BIIF-11 (PRN 10)", "catnr": 41019, "blurb": "GPS"},
-      {"name": "GPS BIIF-12 (PRN 32)", "catnr": 41328, "blurb": "GPS"},
-      {"name": "GPS BIII-1  (PRN 04)", "catnr": 43873, "blurb": "GPS"},
-      {"name": "GPS BIII-2  (PRN 18)", "catnr": 44506, "blurb": "GPS"},
-      {"name": "GALILEO 5 (FM3)", "catnr": 40128, "blurb": "European GNSS"},
-      {"name": "GALILEO 6 (FM4)", "catnr": 40129, "blurb": "European GNSS"},
-      {"name": "GALILEO 7 (FM7)", "catnr": 40544, "blurb": "European GNSS"},
-      {"name": "GALILEO 8 (FM8)", "catnr": 40545, "blurb": "European GNSS"},
-      {"name": "GLONASS K-1 (753)", "catnr": 37869, "blurb": "Russian GNSS"},
-      {"name": "BEIDOU-3 M11", "catnr": 43208, "blurb": "Chinese GNSS"}
+      {
+        "name": "GPS BIIR-2  (PRN 13)",
+        "catnr": 24876,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-3  (PRN 11)",
+        "catnr": 25933,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-4  (PRN 20)",
+        "catnr": 26360,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-5  (PRN 28)",
+        "catnr": 26407,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-6  (PRN 14)",
+        "catnr": 26605,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-7  (PRN 18)",
+        "catnr": 26690,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-8  (PRN 16)",
+        "catnr": 27663,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-9  (PRN 21)",
+        "catnr": 27704,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-10 (PRN 22)",
+        "catnr": 28129,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-11 (PRN 19)",
+        "catnr": 28190,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-12 (PRN 23)",
+        "catnr": 28361,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIR-13 (PRN 02)",
+        "catnr": 28474,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-1 (PRN 17)",
+        "catnr": 28874,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-2 (PRN 31)",
+        "catnr": 29486,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-3 (PRN 12)",
+        "catnr": 29601,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-4 (PRN 15)",
+        "catnr": 32260,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-5 (PRN 29)",
+        "catnr": 32384,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIRM-6 (PRN 07)",
+        "catnr": 32711,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-1  (PRN 25)",
+        "catnr": 36585,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-2  (PRN 01)",
+        "catnr": 37753,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-3  (PRN 24)",
+        "catnr": 38833,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-4  (PRN 27)",
+        "catnr": 39166,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-5  (PRN 30)",
+        "catnr": 39533,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-6  (PRN 06)",
+        "catnr": 39741,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-7  (PRN 09)",
+        "catnr": 40105,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-8  (PRN 03)",
+        "catnr": 40294,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-9  (PRN 26)",
+        "catnr": 40534,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-10 (PRN 08)",
+        "catnr": 40730,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-11 (PRN 10)",
+        "catnr": 41019,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIIF-12 (PRN 32)",
+        "catnr": 41328,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIII-1  (PRN 04)",
+        "catnr": 43873,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GPS BIII-2  (PRN 18)",
+        "catnr": 44506,
+        "blurb": "GPS"
+      },
+      {
+        "name": "GALILEO 5 (FM3)",
+        "catnr": 40128,
+        "blurb": "European GNSS"
+      },
+      {
+        "name": "GALILEO 6 (FM4)",
+        "catnr": 40129,
+        "blurb": "European GNSS"
+      },
+      {
+        "name": "GALILEO 7 (FM7)",
+        "catnr": 40544,
+        "blurb": "European GNSS"
+      },
+      {
+        "name": "GALILEO 8 (FM8)",
+        "catnr": 40545,
+        "blurb": "European GNSS"
+      },
+      {
+        "name": "GLONASS K-1 (753)",
+        "catnr": 37869,
+        "blurb": "Russian GNSS"
+      },
+      {
+        "name": "BEIDOU-3 M11",
+        "catnr": 43208,
+        "blurb": "Chinese GNSS"
+      }
     ],
     "Earth observation": [
-      {"name": "LANDSAT 8", "catnr": 39084, "blurb": "USGS Earth imaging"},
-      {"name": "LANDSAT 9", "catnr": 49260, "blurb": "USGS Earth imaging"},
-      {"name": "SENTINEL-1A", "catnr": 39634, "blurb": "ESA SAR imaging"},
-      {"name": "SENTINEL-2A", "catnr": 40697, "blurb": "ESA optical imaging"},
-      {"name": "SENTINEL-2B", "catnr": 42063, "blurb": "ESA optical imaging"},
-      {"name": "SENTINEL-3A", "catnr": 41335, "blurb": "ESA ocean / land monitor"},
-      {"name": "SENTINEL-3B", "catnr": 43437, "blurb": "ESA ocean / land monitor"},
-      {"name": "SENTINEL-6A (M-Freilich)", "catnr": 46984, "blurb": "Sea-level altimetry"},
-      {"name": "TERRA", "catnr": 25994, "blurb": "MODIS / ASTER multispectral"},
-      {"name": "AQUA", "catnr": 27424, "blurb": "MODIS / AIRS multispectral"},
-      {"name": "AURA", "catnr": 28376, "blurb": "Atmospheric chemistry"},
-      {"name": "SUOMI NPP", "catnr": 37849, "blurb": "VIIRS day/night-band imaging"},
-      {"name": "NOAA 20 (JPSS-1)", "catnr": 43013, "blurb": "VIIRS / CrIS / ATMS"},
-      {"name": "NOAA 21 (JPSS-2)", "catnr": 54234, "blurb": "VIIRS / CrIS / ATMS"},
-      {"name": "ICESAT-2", "catnr": 43613, "blurb": "Cryosphere laser altimetry"},
-      {"name": "GRACE-FO 1", "catnr": 43476, "blurb": "Gravity field mapping"},
-      {"name": "GRACE-FO 2", "catnr": 43477, "blurb": "Gravity field mapping"},
-      {"name": "SMAP", "catnr": 40376, "blurb": "Soil moisture"},
-      {"name": "JASON-3", "catnr": 41240, "blurb": "Sea-level altimetry"},
-      {"name": "PACE", "catnr": 58928, "blurb": "Ocean colour + clouds + aerosols"},
-      {"name": "PROBA-V", "catnr": 39159, "blurb": "Vegetation monitoring"},
-      {"name": "WORLDVIEW-3", "catnr": 40115, "blurb": "Commercial high-res imaging"},
-      {"name": "PLEIADES 1A", "catnr": 38012, "blurb": "Commercial optical imaging"},
-      {"name": "GAOFEN-3", "catnr": 41727, "blurb": "Chinese SAR"}
+      {
+        "name": "LANDSAT 8",
+        "catnr": 39084,
+        "blurb": "USGS Earth imaging"
+      },
+      {
+        "name": "LANDSAT 9",
+        "catnr": 49260,
+        "blurb": "USGS Earth imaging"
+      },
+      {
+        "name": "SENTINEL-1A",
+        "catnr": 39634,
+        "blurb": "ESA SAR imaging"
+      },
+      {
+        "name": "SENTINEL-2A",
+        "catnr": 40697,
+        "blurb": "ESA optical imaging"
+      },
+      {
+        "name": "SENTINEL-2B",
+        "catnr": 42063,
+        "blurb": "ESA optical imaging"
+      },
+      {
+        "name": "SENTINEL-3A",
+        "catnr": 41335,
+        "blurb": "ESA ocean / land monitor"
+      },
+      {
+        "name": "SENTINEL-3B",
+        "catnr": 43437,
+        "blurb": "ESA ocean / land monitor"
+      },
+      {
+        "name": "SENTINEL-6A (M-Freilich)",
+        "catnr": 46984,
+        "blurb": "Sea-level altimetry"
+      },
+      {
+        "name": "TERRA",
+        "catnr": 25994,
+        "blurb": "MODIS / ASTER multispectral"
+      },
+      {
+        "name": "AQUA",
+        "catnr": 27424,
+        "blurb": "MODIS / AIRS multispectral"
+      },
+      {
+        "name": "AURA",
+        "catnr": 28376,
+        "blurb": "Atmospheric chemistry"
+      },
+      {
+        "name": "SUOMI NPP",
+        "catnr": 37849,
+        "blurb": "VIIRS day/night-band imaging"
+      },
+      {
+        "name": "NOAA 20 (JPSS-1)",
+        "catnr": 43013,
+        "blurb": "VIIRS / CrIS / ATMS"
+      },
+      {
+        "name": "NOAA 21 (JPSS-2)",
+        "catnr": 54234,
+        "blurb": "VIIRS / CrIS / ATMS"
+      },
+      {
+        "name": "ICESAT-2",
+        "catnr": 43613,
+        "blurb": "Cryosphere laser altimetry"
+      },
+      {
+        "name": "GRACE-FO 1",
+        "catnr": 43476,
+        "blurb": "Gravity field mapping"
+      },
+      {
+        "name": "GRACE-FO 2",
+        "catnr": 43477,
+        "blurb": "Gravity field mapping"
+      },
+      {
+        "name": "SMAP",
+        "catnr": 40376,
+        "blurb": "Soil moisture"
+      },
+      {
+        "name": "JASON-3",
+        "catnr": 41240,
+        "blurb": "Sea-level altimetry"
+      },
+      {
+        "name": "PACE",
+        "catnr": 58928,
+        "blurb": "Ocean colour + clouds + aerosols"
+      },
+      {
+        "name": "PROBA-V",
+        "catnr": 39159,
+        "blurb": "Vegetation monitoring"
+      },
+      {
+        "name": "WORLDVIEW-3",
+        "catnr": 40115,
+        "blurb": "Commercial high-res imaging"
+      },
+      {
+        "name": "PLEIADES 1A",
+        "catnr": 38012,
+        "blurb": "Commercial optical imaging"
+      },
+      {
+        "name": "GAOFEN-3",
+        "catnr": 41727,
+        "blurb": "Chinese SAR"
+      }
     ],
     "Weather": [
-      {"name": "GOES 16", "catnr": 41866, "blurb": "GEO weather imaging — east"},
-      {"name": "GOES 17", "catnr": 43226, "blurb": "GEO weather imaging — west"},
-      {"name": "GOES 18", "catnr": 51850, "blurb": "GEO weather imaging — west"},
-      {"name": "GOES 19", "catnr": 60133, "blurb": "GEO weather imaging — east"},
-      {"name": "METEOSAT-9", "catnr": 28912, "blurb": "EUMETSAT GEO weather"},
-      {"name": "METEOSAT-10", "catnr": 38552, "blurb": "EUMETSAT GEO weather"},
-      {"name": "METEOSAT-11", "catnr": 40732, "blurb": "EUMETSAT GEO weather"},
-      {"name": "METOP-B", "catnr": 38771, "blurb": "Polar-orbiting weather"},
-      {"name": "METOP-C", "catnr": 43689, "blurb": "Polar-orbiting weather"},
-      {"name": "HIMAWARI-8", "catnr": 40267, "blurb": "Japanese GEO weather"},
-      {"name": "HIMAWARI-9", "catnr": 41836, "blurb": "Japanese GEO weather"},
-      {"name": "FY-4A", "catnr": 41882, "blurb": "Chinese GEO weather"},
-      {"name": "INSAT-3DR", "catnr": 41752, "blurb": "Indian GEO weather"},
-      {"name": "DSCOVR", "catnr": 40390, "blurb": "Sun-Earth L1 weather + Earth imager"}
+      {
+        "name": "GOES 16",
+        "catnr": 41866,
+        "blurb": "GEO weather imaging \u2014 east"
+      },
+      {
+        "name": "GOES 17",
+        "catnr": 43226,
+        "blurb": "GEO weather imaging \u2014 west"
+      },
+      {
+        "name": "GOES 18",
+        "catnr": 51850,
+        "blurb": "GEO weather imaging \u2014 west"
+      },
+      {
+        "name": "GOES 19",
+        "catnr": 60133,
+        "blurb": "GEO weather imaging \u2014 east"
+      },
+      {
+        "name": "METEOSAT-9",
+        "catnr": 28912,
+        "blurb": "EUMETSAT GEO weather"
+      },
+      {
+        "name": "METEOSAT-10",
+        "catnr": 38552,
+        "blurb": "EUMETSAT GEO weather"
+      },
+      {
+        "name": "METEOSAT-11",
+        "catnr": 40732,
+        "blurb": "EUMETSAT GEO weather"
+      },
+      {
+        "name": "METOP-B",
+        "catnr": 38771,
+        "blurb": "Polar-orbiting weather"
+      },
+      {
+        "name": "METOP-C",
+        "catnr": 43689,
+        "blurb": "Polar-orbiting weather"
+      },
+      {
+        "name": "HIMAWARI-8",
+        "catnr": 40267,
+        "blurb": "Japanese GEO weather"
+      },
+      {
+        "name": "HIMAWARI-9",
+        "catnr": 41836,
+        "blurb": "Japanese GEO weather"
+      },
+      {
+        "name": "FY-4A",
+        "catnr": 41882,
+        "blurb": "Chinese GEO weather"
+      },
+      {
+        "name": "INSAT-3DR",
+        "catnr": 41752,
+        "blurb": "Indian GEO weather"
+      }
     ],
     "Communications": [
-      {"name": "IRIDIUM 102", "catnr": 41917, "blurb": "Iridium NEXT — voice + IoT"},
-      {"name": "IRIDIUM 103", "catnr": 41918, "blurb": "Iridium NEXT"},
-      {"name": "IRIDIUM 104", "catnr": 41919, "blurb": "Iridium NEXT"},
-      {"name": "IRIDIUM 105", "catnr": 41920, "blurb": "Iridium NEXT"},
-      {"name": "IRIDIUM 106", "catnr": 41921, "blurb": "Iridium NEXT"},
-      {"name": "INMARSAT 5-F1", "catnr": 39476, "blurb": "Global L-band broadband"},
-      {"name": "INMARSAT 5-F2", "catnr": 40384, "blurb": "Global L-band broadband"},
-      {"name": "INMARSAT 5-F3", "catnr": 40882, "blurb": "Global L-band broadband"},
-      {"name": "INMARSAT 5-F4", "catnr": 42698, "blurb": "Global L-band broadband"},
-      {"name": "VIASAT-1", "catnr": 37843, "blurb": "Ka-band consumer broadband"},
-      {"name": "VIASAT-2", "catnr": 42740, "blurb": "Ka-band broadband"},
-      {"name": "ECHOSTAR XIX", "catnr": 41893, "blurb": "Ka-band consumer broadband"},
-      {"name": "DIRECTV-15", "catnr": 40663, "blurb": "Ku/Ka-band broadcast"},
-      {"name": "INTELSAT 33E", "catnr": 41748, "blurb": "GEO comms"},
-      {"name": "AMC-1", "catnr": 23877, "blurb": "GEO comms (legacy)"},
-      {"name": "TDRS 12", "catnr": 39504, "blurb": "NASA tracking + data relay"},
-      {"name": "TDRS 13", "catnr": 42915, "blurb": "NASA tracking + data relay"},
-      {"name": "SES 9", "catnr": 41380, "blurb": "GEO comms"},
-      {"name": "SES 12", "catnr": 43488, "blurb": "GEO comms"},
-      {"name": "OneWeb-0012", "catnr": 44057, "blurb": "OneWeb constellation"},
-      {"name": "OneWeb-0061", "catnr": 45128, "blurb": "OneWeb constellation"},
-      {"name": "Astra 1KR", "catnr": 29055, "blurb": "GEO European broadcast"}
+      {
+        "name": "IRIDIUM 102",
+        "catnr": 41917,
+        "blurb": "Iridium NEXT \u2014 voice + IoT"
+      },
+      {
+        "name": "IRIDIUM 103",
+        "catnr": 41918,
+        "blurb": "Iridium NEXT"
+      },
+      {
+        "name": "IRIDIUM 104",
+        "catnr": 41919,
+        "blurb": "Iridium NEXT"
+      },
+      {
+        "name": "IRIDIUM 105",
+        "catnr": 41920,
+        "blurb": "Iridium NEXT"
+      },
+      {
+        "name": "IRIDIUM 106",
+        "catnr": 41921,
+        "blurb": "Iridium NEXT"
+      },
+      {
+        "name": "INMARSAT 5-F1",
+        "catnr": 39476,
+        "blurb": "Global L-band broadband"
+      },
+      {
+        "name": "INMARSAT 5-F2",
+        "catnr": 40384,
+        "blurb": "Global L-band broadband"
+      },
+      {
+        "name": "INMARSAT 5-F3",
+        "catnr": 40882,
+        "blurb": "Global L-band broadband"
+      },
+      {
+        "name": "INMARSAT 5-F4",
+        "catnr": 42698,
+        "blurb": "Global L-band broadband"
+      },
+      {
+        "name": "VIASAT-1",
+        "catnr": 37843,
+        "blurb": "Ka-band consumer broadband"
+      },
+      {
+        "name": "VIASAT-2",
+        "catnr": 42740,
+        "blurb": "Ka-band broadband"
+      },
+      {
+        "name": "ECHOSTAR XIX",
+        "catnr": 41893,
+        "blurb": "Ka-band consumer broadband"
+      },
+      {
+        "name": "DIRECTV-15",
+        "catnr": 40663,
+        "blurb": "Ku/Ka-band broadcast"
+      },
+      {
+        "name": "INTELSAT 33E",
+        "catnr": 41748,
+        "blurb": "GEO comms"
+      },
+      {
+        "name": "AMC-1",
+        "catnr": 23877,
+        "blurb": "GEO comms (legacy)"
+      },
+      {
+        "name": "TDRS 12",
+        "catnr": 39504,
+        "blurb": "NASA tracking + data relay"
+      },
+      {
+        "name": "TDRS 13",
+        "catnr": 42915,
+        "blurb": "NASA tracking + data relay"
+      },
+      {
+        "name": "SES 9",
+        "catnr": 41380,
+        "blurb": "GEO comms"
+      },
+      {
+        "name": "SES 12",
+        "catnr": 43488,
+        "blurb": "GEO comms"
+      },
+      {
+        "name": "OneWeb-0012",
+        "catnr": 44057,
+        "blurb": "OneWeb constellation"
+      },
+      {
+        "name": "OneWeb-0061",
+        "catnr": 45128,
+        "blurb": "OneWeb constellation"
+      },
+      {
+        "name": "Astra 1KR",
+        "catnr": 29055,
+        "blurb": "GEO European broadcast"
+      }
     ],
     "Starlink (sample)": [
-      {"name": "STARLINK-1007", "catnr": 44713, "blurb": "Starlink v1.0 — first generation"},
-      {"name": "STARLINK-1008", "catnr": 44714, "blurb": "Starlink v1.0"},
-      {"name": "STARLINK-1071", "catnr": 45044, "blurb": "Starlink v1.0"},
-      {"name": "STARLINK-1072", "catnr": 45045, "blurb": "Starlink v1.0"},
-      {"name": "STARLINK-2046", "catnr": 47426, "blurb": "Starlink v1.5"},
-      {"name": "STARLINK-2089", "catnr": 47435, "blurb": "Starlink v1.5"},
-      {"name": "STARLINK-3105", "catnr": 49141, "blurb": "Starlink v1.5"},
-      {"name": "STARLINK-3170", "catnr": 49202, "blurb": "Starlink v1.5"},
-      {"name": "STARLINK-30000", "catnr": 56754, "blurb": "Starlink V2-mini"},
-      {"name": "STARLINK-31000", "catnr": 58210, "blurb": "Starlink V2-mini"}
+      {
+        "name": "STARLINK-1008",
+        "catnr": 44714,
+        "blurb": "Starlink v1.0"
+      },
+      {
+        "name": "STARLINK-1071",
+        "catnr": 45044,
+        "blurb": "Starlink v1.0"
+      },
+      {
+        "name": "STARLINK-2089",
+        "catnr": 47435,
+        "blurb": "Starlink v1.5"
+      },
+      {
+        "name": "STARLINK-3105",
+        "catnr": 49141,
+        "blurb": "Starlink v1.5"
+      },
+      {
+        "name": "STARLINK-3170",
+        "catnr": 49202,
+        "blurb": "Starlink v1.5"
+      },
+      {
+        "name": "STARLINK-31000",
+        "catnr": 58210,
+        "blurb": "Starlink V2-mini"
+      }
     ],
     "Famous historical": [
-      {"name": "VANGUARD 1", "catnr": 5, "blurb": "1958 — oldest satellite still in orbit"},
-      {"name": "TIROS 1", "catnr": 29, "blurb": "1960 — first weather satellite (defunct)"},
-      {"name": "TELSTAR 1", "catnr": 340, "blurb": "1962 — first active comms satellite (defunct)"},
-      {"name": "EXPLORER 6", "catnr": 15, "blurb": "1959 — first Earth photo from orbit"},
-      {"name": "ANIK F1", "catnr": 26624, "blurb": "Telesat broadcast workhorse"},
-      {"name": "LAGEOS 1", "catnr": 8820, "blurb": "Laser-ranging geodesy reference"},
-      {"name": "LAGEOS 2", "catnr": 22195, "blurb": "Laser-ranging geodesy reference"},
-      {"name": "GRAVITY PROBE B", "catnr": 28230, "blurb": "Tested general relativity"}
+      {
+        "name": "VANGUARD 1",
+        "catnr": 5,
+        "blurb": "1958 \u2014 oldest satellite still in orbit"
+      },
+      {
+        "name": "TIROS 1",
+        "catnr": 29,
+        "blurb": "1960 \u2014 first weather satellite (defunct)"
+      },
+      {
+        "name": "TELSTAR 1",
+        "catnr": 340,
+        "blurb": "1962 \u2014 first active comms satellite (defunct)"
+      },
+      {
+        "name": "ANIK F1",
+        "catnr": 26624,
+        "blurb": "Telesat broadcast workhorse"
+      },
+      {
+        "name": "LAGEOS 1",
+        "catnr": 8820,
+        "blurb": "Laser-ranging geodesy reference"
+      },
+      {
+        "name": "LAGEOS 2",
+        "catnr": 22195,
+        "blurb": "Laser-ranging geodesy reference"
+      },
+      {
+        "name": "GRAVITY PROBE B",
+        "catnr": 28230,
+        "blurb": "Tested general relativity"
+      }
     ],
     "Cubesats & amateur": [
-      {"name": "FUNCUBE-1 (AO-73)", "catnr": 39444, "blurb": "Amateur radio educational sat"},
-      {"name": "AO-91 (RADFXSAT)", "catnr": 43017, "blurb": "Amateur radio FM repeater"},
-      {"name": "AO-92 (FOX-1D)", "catnr": 43137, "blurb": "Amateur radio"},
-      {"name": "AO-95 (FOX-1B)", "catnr": 43770, "blurb": "Amateur radio"},
-      {"name": "GOMX-3", "catnr": 41033, "blurb": "ESA tech-demo cubesat"},
-      {"name": "DELFI-N3XT", "catnr": 39428, "blurb": "TU Delft cubesat"},
-      {"name": "CIRBE", "catnr": 56871, "blurb": "Climate cubesat"},
-      {"name": "PROBA-1", "catnr": 26958, "blurb": "ESA Earth-observation tech demo"},
-      {"name": "EYESAT", "catnr": 44389, "blurb": "Educational sat"}
+      {
+        "name": "FUNCUBE-1 (AO-73)",
+        "catnr": 39444,
+        "blurb": "Amateur radio educational sat"
+      },
+      {
+        "name": "AO-91 (RADFXSAT)",
+        "catnr": 43017,
+        "blurb": "Amateur radio FM repeater"
+      },
+      {
+        "name": "AO-95 (FOX-1B)",
+        "catnr": 43770,
+        "blurb": "Amateur radio"
+      },
+      {
+        "name": "GOMX-3",
+        "catnr": 41033,
+        "blurb": "ESA tech-demo cubesat"
+      },
+      {
+        "name": "DELFI-N3XT",
+        "catnr": 39428,
+        "blurb": "TU Delft cubesat"
+      },
+      {
+        "name": "PROBA-1",
+        "catnr": 26958,
+        "blurb": "ESA Earth-observation tech demo"
+      },
+      {
+        "name": "EYESAT",
+        "catnr": 44389,
+        "blurb": "Educational sat"
+      }
     ]
   }
 }
