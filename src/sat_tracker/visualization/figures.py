@@ -400,7 +400,7 @@ def _add_track_traces(
                     mode="markers",
                     marker=dict(
                         size=20,
-                        color="#ffd400",
+                        color="#ffffff",
                         line=dict(color=color, width=2),
                         symbol="star",
                     ),
@@ -773,7 +773,7 @@ def _add_orbit_traces(
                     mode="markers",
                     marker=dict(
                         size=10,
-                        color="#ffd400",
+                        color="#ffffff",
                         line=dict(color=color, width=2),
                         symbol="diamond",
                     ),
