@@ -293,4 +293,3 @@ Alex Woods
 - LinkedIn: [linkedin.com/in/alex-woods-678826289](https://www.linkedin.com/in/alex-woods-678826289/)
 - Email: alex.binh.woods@gmail.com
 
-Built as part of preparing to apply to NASA. Feedback and suggestions welcome via issues or pull requests.
