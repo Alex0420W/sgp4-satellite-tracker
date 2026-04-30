@@ -20,7 +20,9 @@ ISS (ZARYA) [25544]
 
 ## Why this project
 
-I built this as part of preparing to apply to NASA. Most "satellite tracker" tutorials stop at plotting a position with library defaults. This project goes further: it explicitly handles the things real ground-tracking software has to handle — TLE checksum validation, naive-datetime rejection, EOP staleness, propagation error codes, and degraded-mode operation when networks fail. The deployable Streamlit dashboard is the artifact you can put in front of a recruiter; the underlying library is what makes it correct.
+I've watched rocket launches since I was a kid. The thing that grabbed me wasn't the launch itself but the moment after — when the launch announcer would say something like "we have acquisition of signal" or "tracking is nominal" and somehow follow a 7 km/s object through space accurately enough to know whether it was healthy. That kind of thing felt like magic and I wanted to understand it.
+Tracking an active rocket is operationally hard — radar, optical, telemetry processing, multiple ground stations handing off, all happening in real time. So I started somewhere simpler: tracking satellites that are already in orbit, using the data and models that are publicly available. TLEs from CelesTrak. SGP4 for orbit propagation. IERS Earth Orientation Parameters for accurate ground-station geometry. The math has been public since the 1960s and 70s; the data sources are well-curated. One developer can credibly build this.
+What I tried to do — and where most "satellite tracker" tutorials stop — is make it actually defensible as ground-tracking software. TLE checksum validation. Naive-datetime rejection (timezone bugs are how spacecraft get pointed at the wrong sky). EOP staleness checks (Earth's rotation drifts; pretending it doesn't is an error). Propagation error codes from SGP4 surfaced rather than swallowed. Degraded-mode operation when CelesTrak is unreachable, instead of crashing. The point isn't that the project tracks rockets — the point is that the parts of it that touch real systems are written like real systems.
 
 ## What it does
 
